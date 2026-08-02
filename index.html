@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Arcana · Administración</title>
+<link rel="icon" id="favicon-link" href=""/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#0f0e0c;color:#f0ebe3;min-height:100vh;padding-bottom:70px}
+button{cursor:pointer;font-family:inherit}
+input,select,textarea{font-family:inherit;outline:none;color:#f0ebe3}
+
+/* ── LOCK SCREEN ── */
+#lock{position:fixed;inset:0;background:#0f0e0c;z-index:999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;padding:20px}
+#lock .lg{font-family:Georgia,serif;font-style:italic;font-size:26px;color:#c9a96e}
+#lock .ls{font-size:10px;color:#6b6358;letter-spacing:3px;text-transform:uppercase;margin-top:-10px}
+#lockbox{background:#141210;border:1px solid #2a2620;border-radius:14px;padding:24px;width:100%;max-width:300px}
+#lockerr{color:#f87171;font-size:12px;margin-top:8px;display:none;text-align:center}
+
+/* ── HEADER ── */
+#hdr{position:sticky;top:0;z-index:100;background:#0f0e0c;border-bottom:1px solid #2a2620;display:flex;align-items:center;gap:8px;padding:0 14px;height:46px;flex-wrap:nowrap}
+#navrow{position:sticky;top:46px;z-index:99;background:#0f0e0c;border-bottom:1px solid #2a2620;overflow-x:auto;white-space:nowrap;padding:6px 14px}
+#navrow::-webkit-scrollbar{height:4px}
+#navrow::-webkit-scrollbar-thumb{background:#2a2620;border-radius:4px}
+#logo{font-family:Georgia,serif;font-style:italic;font-size:18px;color:#c9a96e;white-space:nowrap}
+#logo2{font-size:9px;color:#6b6358;letter-spacing:2px;text-transform:uppercase;white-space:nowrap}
+#sync-ind{font-size:10px;color:#6b6358;margin-left:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
+#hr{margin-left:auto;display:flex;gap:5px;align-items:center;flex-shrink:0}
+.hb{background:#1e1c18;border:1px solid #2a2620;border-radius:7px;padding:3px 9px;color:#a09480;font-size:10px;cursor:pointer;white-space:nowrap}
+
+#desknav{display:flex;gap:3px}
+.nb{background:transparent;border:1px solid transparent;border-radius:7px;padding:5px 10px;color:#8a8070;font-size:11px;cursor:pointer;white-space:nowrap}
+.nb.on{background:#1e1c18;border-color:#2a2620;color:#c9a96e}
+
+#mobnav{display:none;position:fixed;bottom:0;left:0;right:0;z-index:100;background:#0f0e0c;border-top:1px solid #2a2620;flex-direction:row;justify-content:space-around;padding:6px 0 8px}
+.mnb{display:flex;flex-direction:column;align-items:center;gap:2px;background:none;border:none;color:#6b6358;font-size:9px;padding:4px 6px;cursor:pointer;flex:1}
+.mnb.on{color:#c9a96e}
+.mnb .ico{font-size:16px;line-height:1}
+
+#main{padding:14px;max-width:1100px;margin:0 auto}
+.tab{display:none}.tab.on{display:block}
+.box{background:#141210;border:1px solid #2a2620;border-radius:10px;overflow:hidden}
+.card{background:#141210;border:1px solid #2a2620;border-radius:12px;padding:15px;margin-bottom:12px}
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{padding:7px 10px;text-align:left;color:#6b6358;font-weight:500;font-size:10px;letter-spacing:.04em;text-transform:uppercase;border-bottom:1px solid #2a2620;white-space:nowrap}
+.tbl td{padding:7px 10px;border-bottom:1px solid #1e1c18;vertical-align:middle}
+.tbl tr:hover td{background:#1a1814}
+.inp{background:#0f0e0c;border:1px solid #2a2620;border-radius:8px;color:#f0ebe3;font-size:14px;padding:9px 12px;width:100%}
+.lbl{font-size:10px;color:#6b6358;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px}
+.fld{margin-bottom:12px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.btn{background:#1e1c18;border:1px solid #2a2620;border-radius:7px;padding:7px 13px;color:#a09480;font-size:12px;cursor:pointer}
+.btna{background:#c9a96e;border:none;color:#0f0e0c;font-weight:700;border-radius:7px;padding:7px 13px;font-size:12px;cursor:pointer}
+.btns{padding:4px 9px;font-size:11px}
+.btnr{background:#2a1010;border:1px solid #4a1c1c;color:#f87171;border-radius:7px;padding:7px 13px;font-size:12px;cursor:pointer}
+.btng{background:#0f1e14;border:1px solid #1c4a2c;color:#4ade80;border-radius:7px;padding:7px 13px;font-size:12px;cursor:pointer}
+.pill{border-radius:20px;padding:2px 9px;font-size:11px;font-weight:600}
+.pg{background:#4ade8022;color:#4ade80}.pr{background:#f8717122;color:#f87171}.py{background:#f59e0b22;color:#f59e0b}
+
+#mbg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;align-items:flex-end;justify-content:center;padding:0}
+#mbg.on{display:flex}
+#mbox{background:#141210;border:1px solid #2a2620;border-radius:14px 14px 0 0;width:100%;max-width:560px;max-height:92vh;overflow-y:auto}
+#mhd{display:flex;justify-content:space-between;align-items:center;padding:13px 18px;border-bottom:1px solid #2a2620;position:sticky;top:0;background:#141210;z-index:1}
+#mtit{font-family:Georgia,serif;font-size:16px;color:#c9a96e}
+#mclose{background:none;border:none;color:#6b6358;font-size:24px;line-height:1;cursor:pointer;padding:0 4px}
+#mbody{padding:18px}
+
+.bar{display:flex;gap:7px;margin-bottom:11px;flex-wrap:wrap;align-items:center}
+.cnt{font-size:11px;color:#6b6358;margin-bottom:8px}
+
+.mono{font-family:monospace}.gold{color:#c9a96e;font-weight:600}
+.mut{color:#a09480}.sm{font-size:11px}.it{font-style:italic}
+.gp{color:#4ade80;font-weight:600}.gn{color:#f87171;font-weight:600}
+.ok{background:rgba(74,222,128,.13);border:1px solid rgba(74,222,128,.27);border-radius:10px;padding:11px 16px;margin-bottom:13px;color:#4ade80;font-weight:600;display:none}
+
+.kgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:9px;margin-bottom:18px}
+.kpi{background:#141210;border:1px solid #2a2620;border-radius:10px;padding:12px}
+.kl{font-size:10px;color:#6b6358;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.kv{font-size:17px;font-weight:700}
+
+.h2{font-family:Georgia,serif;font-size:18px;color:#c9a96e;margin-bottom:13px}
+.h3{font-family:Georgia,serif;font-size:13px;font-style:italic;color:#a09480;margin-bottom:8px}
+.subnav{display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap}
+.subnav button{background:#1e1c18;border:1px solid #2a2620;border-radius:7px;padding:6px 12px;color:#8a8070;font-size:11px}
+.subnav button.on{color:#c9a96e;border-color:#c9a96e44}
+
+.ledgerline{position:relative;padding-left:14px}
+.ledgerline::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:linear-gradient(#c9a96e,#2a2620)}
+
+.progwrap{background:#0f0e0c;border-radius:6px;height:6px;overflow:hidden;margin-top:6px}
+.progbar{height:100%;background:#c9a96e}
+
+.dueGreen{color:#4ade80}.dueYellow{color:#f59e0b}.dueRed{color:#f87171}
+.fr{display:flex;justify-content:space-between;align-items:center;padding:4px 0}
+
+@media(min-width:769px){
+  .kgrid{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
+}
+@media(max-width:768px){
+  #navrow{display:none}
+  #mobnav{display:flex}
+  .g2,.g3{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div id="lock">
+  <div class="lg">Arcana</div>
+  <div class="ls">Administración</div>
+  <div id="lockbox">
+    <div class="fld"><label class="lbl">Contraseña</label><input class="inp" id="lockpass" type="password" placeholder="••••" autocomplete="off"/></div>
+    <button class="btna" style="width:100%" onclick="tryLogin()">Entrar</button>
+    <div id="lockerr">Contraseña incorrecta</div>
+  </div>
+</div>
+
+<div id="app" style="display:none">
+<div id="hdr">
+  <div style="display:flex;align-items:center;gap:6px"><img id="logo-img" src="" style="height:26px;width:26px;border-radius:6px;object-fit:cover;display:none"/><div><div id="logo">Arcana</div><div id="logo2">Administración</div></div></div>
+  <div id="sync-ind">Conectando...</div>
+  <div id="hr"><button class="hb" onclick="aLogo()">Logotipo</button><button class="hb" onclick="cambiarPassApp()">Contraseña</button><button class="hb" onclick="cerrarSesion()">Salir</button></div>
+</div>
+<div id="navrow">
+  <div id="desknav">
+    <button class="nb on" data-tab="dash" onclick="setTab('dash')">Resumen</button>
+    <button class="nb" data-tab="fijos" onclick="setTab('fijos')">Gastos fijos</button>
+    <button class="nb" data-tab="variables" onclick="setTab('variables')">Variables</button>
+    <button class="nb" data-tab="mercancia" onclick="setTab('mercancia')">Mercancía</button>
+    <button class="nb" data-tab="sueldos" onclick="setTab('sueldos')">Sueldos</button>
+    <button class="nb" data-tab="provs" onclick="setTab('provs')">Proveedores</button>
+    <button class="nb" data-tab="fiscal" onclick="setTab('fiscal')">Fiscal</button>
+    <button class="nb" data-tab="hist" onclick="setTab('hist')">Histórico</button>
+  </div>
+</div>
+
+<div id="main">
+
+  <!-- DASHBOARD -->
+  <div class="tab on" id="tab-dash">
+    <div class="h2">Resumen del mes</div>
+    <div id="dash-kpis" class="kgrid"></div>
+    <div class="card">
+      <div class="h3">Alertas de vencimiento</div>
+      <div id="dash-alertas"></div>
+    </div>
+    <div class="card">
+      <div class="h3">Gasto por categoría (este mes)</div>
+      <div id="dash-cat"></div>
+    </div>
+  </div>
+
+  <!-- FIJOS -->
+  <div class="tab" id="tab-fijos">
+    <div class="h2">Gastos fijos</div>
+    <div class="subnav">
+      <button class="on" data-sf="mensual" onclick="setSubFijos('mensual')">Mensuales</button>
+      <button data-sf="anual" onclick="setSubFijos('anual')">Anuales</button>
+      <button data-sf="credito" onclick="setSubFijos('credito')">Créditos</button>
+    </div>
+    <div id="sub-mensual">
+      <div class="bar"><button class="btna" onclick="aFijoMensual()">+ Agregar gasto fijo mensual</button></div>
+      <div id="list-mensual"></div>
+    </div>
+    <div id="sub-anual" style="display:none">
+      <div class="bar"><button class="btna" onclick="aFijoAnual()">+ Agregar suscripción anual</button></div>
+      <div id="list-anual"></div>
+    </div>
+    <div id="sub-credito" style="display:none">
+      <div class="bar"><button class="btna" onclick="aCredito()">+ Agregar crédito</button></div>
+      <div id="list-credito"></div>
+    </div>
+  </div>
+
+  <!-- VARIABLES -->
+  <div class="tab" id="tab-variables">
+    <div class="h2">Gastos variables</div>
+    <div class="bar"><button class="btna" onclick="aVariable()">+ Agregar gasto</button></div>
+    <div class="card">
+      <div class="h3" id="var-mes-tit">Este mes</div>
+      <div id="var-total" style="font-size:22px;font-weight:700;color:#c9a96e;margin-bottom:10px"></div>
+      <div id="list-variables"></div>
+    </div>
+  </div>
+
+  <!-- PROVEEDORES -->
+  <div class="tab" id="tab-provs">
+    <div class="h2">Cuentas por pagar a proveedores</div>
+    <div class="cnt">Solo proveedores de consignación. El saldo se acumula automáticamente cuando cierras un mes en Arcana. Aquí solo registras los pagos que haces.</div>
+    <div id="list-provs"></div>
+  </div>
+
+  <!-- MERCANCIA -->
+  <div class="tab" id="tab-mercancia">
+    <div class="h2">Adquisición de mercancía</div>
+    <div class="card">
+      <div class="kl">Total histórico invertido</div>
+      <div id="merc-total" style="font-size:22px;font-weight:700;color:#c9a96e"></div>
+    </div>
+    <div class="bar"><button class="btna" onclick="aMercancia()">+ Agregar adquisición</button></div>
+    <div id="list-mercancia"></div>
+  </div>
+
+  <!-- SUELDOS -->
+  <div class="tab" id="tab-sueldos">
+    <div class="h2">Sueldos</div>
+    <div class="bar"><button class="btna" onclick="aSueldo()">+ Agregar trabajador</button></div>
+    <div id="list-sueldos"></div>
+  </div>
+
+  <!-- FISCAL -->
+  <div class="tab" id="tab-fiscal">
+    <div class="h2">Fiscal</div>
+    <div class="bar"><button class="btna" onclick="aFiscal()">+ Agregar periodo fiscal</button></div>
+    <div id="list-fiscal"></div>
+  </div>
+
+  <!-- HISTORICO -->
+  <div class="tab" id="tab-hist">
+    <div class="h2">Histórico y desempeño</div>
+    <div class="card">
+      <div class="h3">Ingresos vs. gastos totales (últimos 12 meses)</div>
+      <div id="hist-chart"></div>
+    </div>
+    <div class="card">
+      <div class="h3">Utilidad neta mensual</div>
+      <div id="hist-utilidad"></div>
+    </div>
+    <div class="card">
+      <div class="h3">Evolución de deuda con proveedores</div>
+      <div id="hist-provs"></div>
+    </div>
+
+    <div class="card">
+      <div class="h3">Reporte de un periodo</div>
+      <div class="cnt">Listado claro de ingresos, gastos y pagos del mes que elijas — para consulta o archivo.</div>
+      <div class="fld"><label class="lbl">Periodo</label><input class="inp" type="month" id="rep-periodo" value=""/></div>
+      <div class="bar">
+        <button class="btn" onclick="exportarCSV()">Descargar listado (CSV)</button>
+        <button class="btn" onclick="reporteImprimible()">Ver reporte / Imprimir / Guardar PDF</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="h3">Respaldo y recuperación de datos</div>
+      <div class="cnt">Guarda una copia completa de toda la información de Administración (gastos, sueldos, proveedores, fiscal, mercancía) en un archivo en tu computadora. Úsalo antes de cambios grandes o de forma periódica.</div>
+      <div class="bar">
+        <button class="btn" onclick="respaldarAdmin()">Respaldar</button>
+        <button class="btnr" onclick="ge('restaurar-file').click()">Restaurar</button>
+        <input type="file" id="restaurar-file" accept="application/json" style="display:none" onchange="restaurarAdmin(this.files[0])"/>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<div id="mobnav">
+  <button class="mnb on" data-tab="dash" onclick="setTab('dash')"><span class="ico">&#9776;</span>Resumen</button>
+  <button class="mnb" data-tab="fijos" onclick="setTab('fijos')"><span class="ico">&#128179;</span>Fijos</button>
+  <button class="mnb" data-tab="variables" onclick="setTab('variables')"><span class="ico">&#9998;</span>Variables</button>
+  <button class="mnb" data-tab="mercancia" onclick="setTab('mercancia')"><span class="ico">&#128230;</span>Mercancía</button>
+  <button class="mnb" data-tab="sueldos" onclick="setTab('sueldos')"><span class="ico">&#128101;</span>Sueldos</button>
+  <button class="mnb" data-tab="provs" onclick="setTab('provs')"><span class="ico">&#128100;</span>Provs</button>
+  <button class="mnb" data-tab="fiscal" onclick="setTab('fiscal')"><span class="ico">&#128203;</span>Fiscal</button>
+  <button class="mnb" data-tab="hist" onclick="setTab('hist')"><span class="ico">&#128200;</span>Histórico</button>
+</div>
+
+<div id="mbg"><div id="mbox">
+  <div id="mhd"><div id="mtit"></div><button id="mclose" onclick="CM()">&times;</button></div>
+  <div id="mbody"></div>
+</div></div>
+
+<script src="arcana-admin.js"></script>
+</body>
+</html>
