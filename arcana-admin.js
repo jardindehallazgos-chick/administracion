@@ -534,8 +534,7 @@ function RDash(){
     ["Mercancía del mes", fmt(gm), "#eab308"],
     ["Pagos a proveedores", fmt(pp), "#818cf8"],
     ["Utilidad neta", fmt(utilidad), utilidad>=0?"#4ade80":"#f87171"],
-    ["Saldo total a proveedores", fmt(saldoTotalProveedores()), "#c9a96e"],
-    ["Mercancía invertida (histórico)", fmt(gastosMercanciaTotal()), "#c9a96e"]
+    ["Saldo total a proveedores", fmt(saldoTotalProveedores()), "#c9a96e"]
   ];
   if(fis) kpis.push(["Ahorro fiscal calculado", fmt(ahorro), ahorro>=0?"#4ade80":"#f87171"]);
   var kh=""; for(var i=0;i<kpis.length;i++) kh+='<div class="kpi"><div class="kl">'+kpis[i][0]+'</div><div class="kv" style="color:'+kpis[i][2]+'">'+kpis[i][1]+'</div></div>';
@@ -1047,92 +1046,94 @@ function primerMesConDatos(){
 
 function RHist(){
   var repInput=ge("rep-periodo"); if(repInput&&!repInput.value) repInput.value=mesActual();
-  // Ingresos, gastos totales y utilidad neta, desde el primer mes con datos reales (sin meses vacios previos)
-  var meses={};
-  var hoyYm=mesActual();
+  var ym=mesActual();
+  var prevD=new Date(ym+"-01T00:00:00"); prevD.setMonth(prevD.getMonth()-1);
+  var ymPrev=prevD.toISOString().slice(0,7);
+
+  function datosMes(m){
+    var ingr=ingresosMes(m);
+    var gasto=gastosFijosMesPagado(m)+gastosVariablesMes(m)+pagosProveedoresMes(m)+gastosSueldosMes(m)+gastosMercanciaMes(m);
+    var fis=impuestoMes(m); var imp=fis?(fis.impuestoDeterminado||0):0;
+    return {ingr:ingr, gasto:gasto+imp, util:ingr-gasto-imp};
+  }
+
+  // ── 1. Comparativo con el mes anterior ──
+  var act=datosMes(ym), ant=datosMes(ymPrev);
+  ge("hist-comp-tit").textContent=nombreMes(ym)+" vs. "+nombreMes(ymPrev);
+  function delta(a,b,invertir){
+    if(!b) return '<span class="sm mut">sin comparativo</span>';
+    var pct=Math.round(((a-b)/Math.abs(b))*100);
+    var sube=pct>0;
+    var bueno=invertir?!sube:sube;
+    if(pct===0) return '<span class="sm mut">igual</span>';
+    return '<span class="sm" style="color:'+(bueno?"#4ade80":"#f87171")+'">'+(sube?"&#9650;":"&#9660;")+" "+Math.abs(pct)+'%</span>';
+  }
+  var comp=[
+    ["Ingresos", act.ingr, ant.ingr, false, "#4ade80"],
+    ["Gastos", act.gasto, ant.gasto, true, "#f87171"],
+    ["Utilidad", act.util, ant.util, false, act.util>=0?"#4ade80":"#f87171"]
+  ];
+  var hc='<div class="g3">';
+  for(var i=0;i<comp.length;i++){
+    hc+='<div><div class="kl">'+comp[i][0]+'</div><div style="font-size:19px;font-weight:700;color:'+comp[i][4]+'">'+fmt(comp[i][1])+'</div><div style="margin-top:2px">'+delta(comp[i][1],comp[i][2],comp[i][3])+'</div></div>';
+  }
+  hc+='</div>';
+  ge("hist-comparativo").innerHTML=hc;
+
+  // ── 2. Tabla mes a mes (desde el primer mes con datos, maximo 12) ──
   var inicioYm=primerMesConDatos();
-  var inicioLimite=new Date(hoyYm+"-01T00:00:00"); inicioLimite.setMonth(inicioLimite.getMonth()-11);
-  var inicioLimiteYm=inicioLimite.toISOString().slice(0,7);
-  if(inicioYm<inicioLimiteYm) inicioYm=inicioLimiteYm; // tope de 12 meses hacia atras como maximo
+  var tope=new Date(ym+"-01T00:00:00"); tope.setMonth(tope.getMonth()-11);
+  var topeYm=tope.toISOString().slice(0,7);
+  if(inicioYm<topeYm) inicioYm=topeYm;
+  var meses=[];
   var d=new Date(inicioYm+"-01T00:00:00");
-  while(d.toISOString().slice(0,7)<=hoyYm){
-    var ym=d.toISOString().slice(0,7);
-    var ingr=ingresosMes(ym);
-    var gasto=gastosFijosMesPagado(ym)+gastosVariablesMes(ym)+pagosProveedoresMes(ym)+gastosSueldosMes(ym)+gastosMercanciaMes(ym);
-    meses[ym]={ingr:ingr, gasto:gasto, utilidad:ingr-gasto};
-    d.setMonth(d.getMonth()+1);
+  while(d.toISOString().slice(0,7)<=ym){ meses.push(d.toISOString().slice(0,7)); d.setMonth(d.getMonth()+1); }
+  meses.reverse(); // mas reciente arriba
+  var ht='<div class="tw"><table class="tbl"><thead><tr><th>Mes</th><th style="text-align:right">Ingresos</th><th style="text-align:right">Gastos</th><th style="text-align:right">Utilidad</th><th style="text-align:right">Margen</th></tr></thead><tbody>';
+  for(var i=0;i<meses.length;i++){
+    var m=meses[i], dm=datosMes(m);
+    var margen=dm.ingr>0?Math.round((dm.util/dm.ingr)*100):null;
+    ht+='<tr><td>'+nombreMes(m)+'</td>';
+    ht+='<td style="text-align:right;color:#4ade80">'+fmt(dm.ingr)+'</td>';
+    ht+='<td style="text-align:right;color:#f87171">'+fmt(dm.gasto)+'</td>';
+    ht+='<td style="text-align:right;font-weight:700;color:'+(dm.util>=0?"#4ade80":"#f87171")+'">'+fmt(dm.util)+'</td>';
+    ht+='<td style="text-align:right" class="mut">'+(margen===null?"—":margen+"%")+'</td></tr>';
   }
-  var claves=Object.keys(meses).sort();
-  var max=1; for(var i=0;i<claves.length;i++){ max=Math.max(max,meses[claves[i]].ingr,meses[claves[i]].gasto); }
-  var h='<div style="display:flex;align-items:flex-end;gap:10px;height:190px;padding:10px 0;overflow-x:auto">';
-  for(var i=0;i<claves.length;i++){
-    var ym=claves[i], m=meses[ym];
-    var p1=Math.max(3,Math.round((m.ingr/max)*140)), p2=Math.max(3,Math.round((m.gasto/max)*140));
-    var etq=MESES_ES[parseInt(ym.slice(5,7))-1].slice(0,3)+" "+ym.slice(2,4);
-    h+='<div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:56px;flex:1">';
-    h+='<div style="display:flex;align-items:flex-end;gap:3px;height:140px">';
-    h+='<div title="Ingresos" style="width:16px;height:'+p1+'px;background:#4ade80;border-radius:3px 3px 0 0"></div>';
-    h+='<div title="Gastos totales" style="width:16px;height:'+p2+'px;background:#f87171;border-radius:3px 3px 0 0"></div>';
-    h+='</div>';
-    h+='<div style="font-size:10px;color:#6b6358;white-space:nowrap">'+etq+'</div>';
-    h+='</div>';
-  }
-  h+='</div><div class="sm mut" style="text-align:center;margin-top:6px"><span style="color:#4ade80">&#9632;</span> Ingresos &nbsp; <span style="color:#f87171">&#9632;</span> Gastos totales (fijos + variables + n&oacute;mina + mercanc&iacute;a + proveedores)</div>';
-  ge("hist-chart").innerHTML=h;
+  ht+='</tbody></table></div>';
+  ge("hist-tabla").innerHTML=ht;
 
-  // Utilidad neta mensual
-  var maxU=1; for(var i=0;i<claves.length;i++) maxU=Math.max(maxU, Math.abs(meses[claves[i]].utilidad));
-  var hu='<div style="display:flex;align-items:center;gap:10px;height:170px;padding:10px 0;overflow-x:auto">';
+  // ── 3. A donde se fue el dinero (mes en curso) ──
+  ge("hist-destino-tit").textContent="A dónde se fue el dinero · "+nombreMes(ym);
+  var dest={};
+  function sumar(cat,monto){ if(monto>0) dest[cat]=(dest[cat]||0)+monto; }
+  for(var i=0;i<ADB.pagosMensuales.length;i++){ var p=ADB.pagosMensuales[i];
+    if(p.mes!==ym||p.fondosExternos) continue;
+    var f=ADB.fijosMensuales.find(function(x){return x.id===p.fijoId;});
+    sumar(f?f.nombre:"Gasto fijo",(p.monto||0)+(p.bono||0)); }
+  for(var i=0;i<ADB.pagosAnuales.length;i++){ var p=ADB.pagosAnuales[i];
+    if((p.fecha||"").slice(0,7)!==ym||p.fondosExternos) continue;
+    var f=ADB.fijosAnuales.find(function(x){return x.id===p.fijoId;});
+    sumar(f?f.nombre:"Suscripción anual",p.monto||0); }
+  for(var i=0;i<ADB.creditos.length;i++){ var c=ADB.creditos[i];
+    for(var j=0;j<(c.pagos||[]).length;j++){ var pg=c.pagos[j];
+      if((pg.fecha||"").slice(0,7)!==ym||pg.fondosExternos) continue; sumar("Créditos",pg.monto||0); } }
+  for(var i=0;i<ADB.variables.length;i++){ var v=ADB.variables[i];
+    if((v.fecha||"").slice(0,7)!==ym||v.fondosExternos) continue; sumar(v.categoria||"Variables",v.monto||0); }
+  sumar("Mercancía", (function(){ var t=0; for(var i=0;i<ADB.mercancia.length;i++){ var m=ADB.mercancia[i]; if((m.fecha||"").slice(0,7)===ym&&!m.fondosExternos) t+=m.monto||0; } return t; })());
+  sumar("Nómina", gastosSueldosMes(ym));
+  sumar("Proveedores", pagosProveedoresMes(ym));
+  var fisA=impuestoMes(ym); if(fisA) sumar("Impuestos", fisA.impuestoDeterminado||0);
+  var claves=Object.keys(dest).sort(function(a,b){ return dest[b]-dest[a]; });
+  if(!claves.length){ ge("hist-destino").innerHTML='<div class="sm mut">Sin gastos registrados este mes.</div>'; return; }
+  var totalG=0; for(var i=0;i<claves.length;i++) totalG+=dest[claves[i]];
+  var hd="";
   for(var i=0;i<claves.length;i++){
-    var ym=claves[i], u=meses[ym].utilidad;
-    var ph=Math.max(3,Math.round((Math.abs(u)/maxU)*75));
-    var etq=MESES_ES[parseInt(ym.slice(5,7))-1].slice(0,3)+" "+ym.slice(2,4);
-    hu+='<div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:56px;flex:1">';
-    hu+='<div style="height:80px;display:flex;flex-direction:column;justify-content:flex-end">'+(u>=0?'<div style="width:20px;height:'+ph+'px;background:#4ade80;border-radius:3px 3px 0 0;margin:0 auto"></div>':'<div style="height:80px"></div>')+'</div>';
-    hu+='<div style="height:80px;display:flex;flex-direction:column">'+(u<0?'<div style="width:20px;height:'+ph+'px;background:#f87171;border-radius:0 0 3px 3px;margin:0 auto"></div>':'')+'</div>';
-    hu+='<div style="font-size:10px;color:#6b6358;white-space:nowrap">'+etq+'</div>';
-    hu+='<div class="sm" style="color:'+(u>=0?"#4ade80":"#f87171")+'">'+fmt(u)+'</div>';
-    hu+='</div>';
+    var pct=totalG>0?Math.round((dest[claves[i]]/totalG)*100):0;
+    hd+='<div style="margin-bottom:9px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>'+esc(claves[i])+'</span><span class="gold">'+fmt(dest[claves[i]])+' <span class="mut sm">('+pct+'%)</span></span></div><div class="progwrap"><div class="progbar" style="width:'+pct+'%"></div></div></div>';
   }
-  hu+='</div>';
-  ge("hist-utilidad").innerHTML=hu;
-
-  // Evolucion de deuda con proveedores: generado vs pagado por mes
-  var gen={}, pag={};
-  for(var i=0;i<DATOS.archivo.length;i++){
-    var a=DATOS.archivo[i], pp=a.porProveedor||{}, tot=0;
-    for(var k in pp) tot+=pp[k]||0;
-    gen[a.mes]=(gen[a.mes]||0)+tot;
-  }
-  for(var pid in ADB.proveedores){
-    var pagos=ADB.proveedores[pid].pagos||[];
-    for(var i=0;i<pagos.length;i++){ if(pagos[i].esAjuste||pagos[i].esCierre) continue; var ym2=(pagos[i].fecha||"").slice(0,7); pag[ym2]=(pag[ym2]||0)+(pagos[i].monto||0); }
-  }
-  var todosYm={}; for(var k in gen) todosYm[k]=true; for(var k in pag) todosYm[k]=true;
-  var clavesP=Object.keys(todosYm).sort();
-  if(!clavesP.length){ ge("hist-provs").innerHTML='<div class="sm mut">Aún no hay historial de deuda con proveedores.</div>'; }
-  else {
-    if(clavesP.length>12) clavesP=clavesP.slice(clavesP.length-12);
-    var maxP=1; for(var i=0;i<clavesP.length;i++) maxP=Math.max(maxP, gen[clavesP[i]]||0, pag[clavesP[i]]||0);
-    var h2='<div style="display:flex;align-items:flex-end;gap:10px;height:190px;padding:10px 0;overflow-x:auto">';
-    for(var i=0;i<clavesP.length;i++){
-      var ym=clavesP[i];
-      var p1=Math.max(3,Math.round(((gen[ym]||0)/maxP)*140)), p2=Math.max(3,Math.round(((pag[ym]||0)/maxP)*140));
-      var etq=MESES_ES[parseInt(ym.slice(5,7))-1].slice(0,3)+" "+ym.slice(2,4);
-      h2+='<div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:56px;flex:1">';
-      h2+='<div style="display:flex;align-items:flex-end;gap:3px;height:140px">';
-      h2+='<div title="Generado" style="width:16px;height:'+p1+'px;background:#f59e0b;border-radius:3px 3px 0 0"></div>';
-      h2+='<div title="Pagado" style="width:16px;height:'+p2+'px;background:#818cf8;border-radius:3px 3px 0 0"></div>';
-      h2+='</div>';
-      h2+='<div style="font-size:10px;color:#6b6358;white-space:nowrap">'+etq+'</div></div>';
-    }
-    h2+='</div><div class="sm mut" style="text-align:center;margin-top:6px"><span style="color:#f59e0b">&#9632;</span> Deuda generada &nbsp; <span style="color:#818cf8">&#9632;</span> Pagado</div>';
-    ge("hist-provs").innerHTML=h2;
-  }
+  hd+='<div class="fr" style="border-top:1px solid #1e1c18;padding-top:8px;margin-top:4px"><span class="mut">Total</span><span class="gold" style="font-weight:700">'+fmt(totalG)+'</span></div>';
+  ge("hist-destino").innerHTML=hd;
 }
-
-// Reune todas las transacciones reales (pagos, gastos, mercancia, nomina, proveedores)
-// de un periodo en una sola lista ordenada por fecha, para consulta clara.
 function transaccionesDelPeriodo(ym){
   var t=[];
   for(var i=0;i<ADB.pagosMensuales.length;i++){ var p=ADB.pagosMensuales[i]; if(p.mes!==ym) continue;
