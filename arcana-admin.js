@@ -67,7 +67,8 @@ var ADB = {
   mercancia: [],
   sueldos: [],
   pagosSueldos: [],
-  config: {lockPass: "JDH1", logo: ""}
+  ajustesCaja: [],
+  config: {lockPass: "JDH1", logo: "", saldoInicialBanco: 0, saldoInicialEfectivo: 0, fechaSaldoInicial: ""}
 };
 var DATOS = { provs: [], archivo: [], ventas: [], apartados: [], saldos: [] };
 var curTab = "dash";
@@ -191,7 +192,7 @@ function loadAdmin(){
     var c=JSON.parse(localStorage.getItem("admdb")||"{}");
     if(c&&c.fijosMensuales) ADB=c;
   }catch(e){}
-  if(!ADB.config) ADB.config={lockPass:LOCK_PASS,logo:""};
+  if(!ADB.config) ADB.config={lockPass:LOCK_PASS,logo:"",saldoInicialBanco:0,saldoInicialEfectivo:0,fechaSaldoInicial:""};
   fbStatus("Conectando...","#6b6358");
   fetch(ADMIN_BASE+"?key="+FB_API_KEY)
     .then(function(r){ return r.json(); })
@@ -376,6 +377,7 @@ function renderAll(){
   else if(curTab==="mercancia") RMercancia();
   else if(curTab==="sueldos") RSueldos();
   else if(curTab==="provs") RProvs();
+  else if(curTab==="caja") RCaja();
   else if(curTab==="fiscal") RFiscal();
   else if(curTab==="hist") RHist();
 }
@@ -668,6 +670,7 @@ function aPagoMensual(fijoId, editar){
   var h='<div class="g2"><div class="fld"><label class="lbl">Fecha de pago</label><input class="inp" type="date" id="pm-fecha" value="'+(pago?pago.fecha:hoy())+'"/></div>';
   h+='<div class="fld"><label class="lbl">Monto</label><input class="inp" type="number" id="pm-monto" value="'+(pago?pago.monto:f.monto)+'"/></div></div>';
   h+='<div class="fld"><label class="lbl">Mes que cubre</label><input class="inp" type="month" id="pm-mes" value="'+ym+'"/></div>';
+  h+='<div class="fld"><label class="lbl">Método de pago</label><select class="inp" id="pm-metodo">'+opcionesMetodo(pago?pago.metodo:"")+'</select></div>';
   h+='<div class="fld"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px"><input type="checkbox" id="pm-externo" '+(pago&&pago.fondosExternos?"checked":"")+' style="accent-color:#c9a96e;width:15px;height:15px"/> Pagado con fondos externos (no descontar de la utilidad de este mes)</label></div>';
   h+='<div style="display:flex;justify-content:flex-end;padding-top:7px"><button class="btna" onclick="guardarPagoMensual(\''+fijoId+'\')">Guardar</button></div>';
   OM(pago?"Editar pago · "+f.nombre:"Registrar pago · "+f.nombre, h);
@@ -675,7 +678,7 @@ function aPagoMensual(fijoId, editar){
 function guardarPagoMensual(fijoId){
   var mes=ge("pm-mes").value;
   ADB.pagosMensuales=ADB.pagosMensuales.filter(function(p){return !(p.fijoId===fijoId&&p.mes===mes);});
-  ADB.pagosMensuales.push({id:uid(), fijoId:fijoId, mes:mes, fecha:ge("pm-fecha").value, monto:parseFloat(ge("pm-monto").value)||0, fondosExternos:ge("pm-externo").checked});
+  ADB.pagosMensuales.push({id:uid(), fijoId:fijoId, mes:mes, fecha:ge("pm-fecha").value, monto:parseFloat(ge("pm-monto").value)||0, metodo:ge("pm-metodo").value, fondosExternos:ge("pm-externo").checked});
   saveAdmin(); CM(); renderMensuales(); RDash();
 }
 function rechazarPagoMensual(fijoId){
@@ -740,6 +743,7 @@ function aPagoAnual(fijoId, editar){
   var h='<div class="g2"><div class="fld"><label class="lbl">Fecha de pago</label><input class="inp" type="date" id="pa-fecha" value="'+(pago?pago.fecha:hoy())+'"/></div>';
   h+='<div class="fld"><label class="lbl">Monto</label><input class="inp" type="number" id="pa-monto" value="'+(pago?pago.monto:f.monto)+'"/></div></div>';
   h+='<div class="fld"><label class="lbl">Año que cubre</label><input class="inp" type="number" id="pa-anio" value="'+anioActual+'"/></div>';
+  h+='<div class="fld"><label class="lbl">Método de pago</label><select class="inp" id="pa-metodo">'+opcionesMetodo(pago?pago.metodo:"")+'</select></div>';
   h+='<div class="fld"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px"><input type="checkbox" id="pa-externo" '+(pago&&pago.fondosExternos?"checked":"")+' style="accent-color:#c9a96e;width:15px;height:15px"/> Pagado con fondos externos (no descontar de la utilidad de este mes)</label></div>';
   h+='<div style="display:flex;justify-content:flex-end;padding-top:7px"><button class="btna" onclick="guardarPagoAnual(\''+fijoId+'\')">Guardar</button></div>';
   OM(pago?"Editar pago · "+f.nombre:"Registrar pago · "+f.nombre, h);
@@ -747,7 +751,7 @@ function aPagoAnual(fijoId, editar){
 function guardarPagoAnual(fijoId){
   var anio=parseInt(ge("pa-anio").value);
   ADB.pagosAnuales=ADB.pagosAnuales.filter(function(p){return !(p.fijoId===fijoId&&p.anio===anio);});
-  ADB.pagosAnuales.push({id:uid(), fijoId:fijoId, anio:anio, fecha:ge("pa-fecha").value, monto:parseFloat(ge("pa-monto").value)||0, fondosExternos:ge("pa-externo").checked});
+  ADB.pagosAnuales.push({id:uid(), fijoId:fijoId, anio:anio, fecha:ge("pa-fecha").value, monto:parseFloat(ge("pa-monto").value)||0, metodo:ge("pa-metodo").value, fondosExternos:ge("pa-externo").checked});
   saveAdmin(); CM(); renderAnuales(); RDash();
 }
 function rechazarPagoAnual(fijoId){
@@ -809,6 +813,7 @@ function aPagoCredito(credId){
   var c=ADB.creditos.find(function(x){return x.id===credId;}); if(!c) return;
   var h='<div class="g2"><div class="fld"><label class="lbl">Fecha</label><input class="inp" type="date" id="pc-fecha" value="'+hoy()+'"/></div>';
   h+='<div class="fld"><label class="lbl">Monto</label><input class="inp" type="number" id="pc-monto"/></div></div>';
+  h+='<div class="fld"><label class="lbl">Método de pago</label><select class="inp" id="pc-metodo">'+opcionesMetodo("")+'</select></div>';
   h+='<div class="fld"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px"><input type="checkbox" id="pc-externo" style="accent-color:#c9a96e;width:15px;height:15px"/> Pagado con fondos externos (no descontar de la utilidad de este mes)</label></div>';
   h+='<div style="display:flex;justify-content:flex-end;padding-top:7px"><button class="btna" onclick="guardarPagoCredito(\''+credId+'\')">Guardar</button></div>';
   OM("Registrar pago · "+c.nombre, h);
@@ -816,7 +821,7 @@ function aPagoCredito(credId){
 function guardarPagoCredito(credId){
   var c=ADB.creditos.find(function(x){return x.id===credId;}); if(!c) return;
   var monto=parseFloat(ge("pc-monto").value)||0;
-  c.pagos=c.pagos||[]; c.pagos.push({id:uid(), fecha:ge("pc-fecha").value, monto:monto, fondosExternos:ge("pc-externo").checked});
+  c.pagos=c.pagos||[]; c.pagos.push({id:uid(), fecha:ge("pc-fecha").value, monto:monto, metodo:ge("pc-metodo").value, fondosExternos:ge("pc-externo").checked});
   saveAdmin(); CM(); renderCreditos(); RDash();
 }
 
@@ -830,6 +835,7 @@ function aVariable(){
   h+='<div class="g2"><div class="fld"><label class="lbl">Monto</label><input class="inp" type="number" id="vr-monto"/></div>';
   h+='<div class="fld"><label class="lbl">Fecha</label><input class="inp" type="date" id="vr-fecha" value="'+hoy()+'"/></div></div>';
   h+='<div class="fld"><label class="lbl">Nota (opcional)</label><input class="inp" id="vr-nota"/></div>';
+  h+='<div class="fld"><label class="lbl">Método de pago</label><select class="inp" id="vr-metodo">'+opcionesMetodo("")+'</select></div>';
   h+='<div class="fld"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px"><input type="checkbox" id="vr-externo" style="accent-color:#c9a96e;width:15px;height:15px"/> Pagado con fondos externos (no descontar de la utilidad de este mes)</label></div>';
   h+='<div style="display:flex;justify-content:flex-end;padding-top:7px"><button class="btna" onclick="saveVariable()">Guardar</button></div>';
   OM("Nuevo gasto variable", h);
@@ -837,7 +843,7 @@ function aVariable(){
 function saveVariable(){
   var cat=ge("vr-cat").value; if(cat==="__nueva__") cat=ge("vr-cat-txt").value.trim()||"Otros";
   if(CATS_VAR.indexOf(cat)===-1) CATS_VAR.push(cat);
-  ADB.variables.push({id:uid(), categoria:cat, monto:parseFloat(ge("vr-monto").value)||0, fecha:ge("vr-fecha").value||hoy(), nota:ge("vr-nota").value||"", fondosExternos:ge("vr-externo").checked});
+  ADB.variables.push({id:uid(), categoria:cat, monto:parseFloat(ge("vr-monto").value)||0, fecha:ge("vr-fecha").value||hoy(), nota:ge("vr-nota").value||"", metodo:ge("vr-metodo").value, fondosExternos:ge("vr-externo").checked});
   saveAdmin(); CM(); RVariables(); RDash();
 }
 function delVariable(id){
@@ -868,7 +874,14 @@ function RProvs(){
   for(var pid in ADB.proveedores) if(getProvTipo(pid)==="consignacion") ids[pid]=true;
   var lista=Object.keys(ids);
   if(!lista.length){ el.innerHTML='<div class="sm mut">Aún no hay proveedores de consignación en Arcana. Los de compra directa no generan cuenta por pagar aquí.</div>'; return; }
-  lista.sort(function(a,b){ return (ADB.proveedores[b]?ADB.proveedores[b].saldo||0:0)-(ADB.proveedores[a]?ADB.proveedores[a].saldo||0:0); });
+  // Dos grupos: primero los que tienen deuda pendiente, luego los que están en cero.
+  // Dentro de cada grupo, orden alfabético por nombre.
+  lista.sort(function(a,b){
+    var sa=(ADB.proveedores[a]?ADB.proveedores[a].saldo||0:0);
+    var sb=(ADB.proveedores[b]?ADB.proveedores[b].saldo||0:0);
+    if((sa>0)!==(sb>0)) return sb>0?1:-1;
+    return getProvName(a).localeCompare(getProvName(b),"es",{sensitivity:"base"});
+  });
   var h="";
   for(var i=0;i<lista.length;i++){
     var pid=lista[i], nombre=getProvName(pid), tipo=getProvTipo(pid);
@@ -1124,25 +1137,25 @@ function transaccionesDelPeriodo(ym){
   var t=[];
   for(var i=0;i<ADB.pagosMensuales.length;i++){ var p=ADB.pagosMensuales[i]; if(p.mes!==ym) continue;
     var f=ADB.fijosMensuales.find(function(x){return x.id===p.fijoId;});
-    t.push({fecha:p.fecha, tipo:"Gasto fijo mensual", concepto:f?f.nombre:"(eliminado)", monto:(p.monto||0)+(p.bono||0), externo:!!p.fondosExternos});
+    t.push({fecha:p.fecha, tipo:"Gasto fijo mensual", concepto:f?f.nombre:"(eliminado)", monto:(p.monto||0)+(p.bono||0), metodo:p.metodo, externo:!!p.fondosExternos});
   }
   for(var i=0;i<ADB.pagosAnuales.length;i++){ var p=ADB.pagosAnuales[i]; if((p.fecha||"").slice(0,7)!==ym) continue;
     var f=ADB.fijosAnuales.find(function(x){return x.id===p.fijoId;});
-    t.push({fecha:p.fecha, tipo:"Gasto fijo anual", concepto:f?f.nombre:"(eliminado)", monto:p.monto||0, externo:!!p.fondosExternos});
+    t.push({fecha:p.fecha, tipo:"Gasto fijo anual", concepto:f?f.nombre:"(eliminado)", monto:p.monto||0, metodo:p.metodo, externo:!!p.fondosExternos});
   }
   for(var i=0;i<ADB.creditos.length;i++){ var c=ADB.creditos[i]; for(var j=0;j<(c.pagos||[]).length;j++){ var pg=c.pagos[j]; if((pg.fecha||"").slice(0,7)!==ym) continue;
-    t.push({fecha:pg.fecha, tipo:"Pago de crédito", concepto:c.nombre, monto:pg.monto||0, externo:!!pg.fondosExternos}); } }
+    t.push({fecha:pg.fecha, tipo:"Pago de crédito", concepto:c.nombre, monto:pg.monto||0, metodo:pg.metodo, externo:!!pg.fondosExternos}); } }
   for(var i=0;i<ADB.variables.length;i++){ var v=ADB.variables[i]; if((v.fecha||"").slice(0,7)!==ym) continue;
-    t.push({fecha:v.fecha, tipo:"Gasto variable", concepto:v.categoria+(v.nota?(" — "+v.nota):""), monto:v.monto||0, externo:!!v.fondosExternos}); }
+    t.push({fecha:v.fecha, tipo:"Gasto variable", concepto:v.categoria+(v.nota?(" — "+v.nota):""), monto:v.monto||0, metodo:v.metodo, externo:!!v.fondosExternos}); }
   for(var i=0;i<ADB.mercancia.length;i++){ var m=ADB.mercancia[i]; if((m.fecha||"").slice(0,7)!==ym) continue;
-    t.push({fecha:m.fecha, tipo:"Mercancía", concepto:m.origen+(m.nota?(" — "+m.nota):""), monto:m.monto||0, externo:!!m.fondosExternos}); }
+    t.push({fecha:m.fecha, tipo:"Mercancía", concepto:m.origen+(m.nota?(" — "+m.nota):""), monto:m.monto||0, metodo:m.metodo, externo:!!m.fondosExternos}); }
   for(var i=0;i<ADB.pagosSueldos.length;i++){ var p=ADB.pagosSueldos[i];
     var ymKey=p.periodo?p.periodo.slice(0,7):(p.fecha||"").slice(0,7); if(ymKey!==ym) continue;
     var s=ADB.sueldos.find(function(x){return x.id===p.sueldoId;});
     var etiqueta=p.esBonoUnico?"Bono único":"Nómina";
-    t.push({fecha:p.fecha, tipo:etiqueta, concepto:s?s.nombre:"(eliminado)", monto:(p.monto||0)+(p.bono||0), externo:!!p.fondosExternos}); }
+    t.push({fecha:p.fecha, tipo:etiqueta, concepto:s?s.nombre:"(eliminado)", monto:(p.monto||0)+(p.bono||0), metodo:p.metodo, externo:!!p.fondosExternos}); }
   for(var pid in ADB.proveedores){ var pagos=ADB.proveedores[pid].pagos||[]; for(var i=0;i<pagos.length;i++){ var pg=pagos[i]; if((pg.fecha||"").slice(0,7)!==ym) continue;
-    t.push({fecha:pg.fecha, tipo:pg.esCierre?"Deuda generada (cierre de mes)":(pg.esAjuste?"Ajuste de saldo (proveedor)":"Pago a proveedor"), concepto:getProvName(pid)+(pg.metodo?(" — "+pg.metodo):""), monto:pg.monto||0, externo:!!pg.fondosExternos}); } }
+    t.push({fecha:pg.fecha, tipo:pg.esCierre?"Deuda generada (cierre de mes)":(pg.esAjuste?"Ajuste de saldo (proveedor)":"Pago a proveedor"), concepto:getProvName(pid), monto:pg.monto||0, metodo:pg.metodo, externo:!!pg.fondosExternos}); } }
   t.sort(function(a,b){ return (a.fecha||"").localeCompare(b.fecha||""); });
   return t;
 }
@@ -1167,9 +1180,9 @@ function exportarCSV(){
   rows.push(["Utilidad neta",utilidad].join(","));
   rows.push("");
   rows.push(["LISTADO DE GASTOS Y PAGOS DEL PERIODO"].join(","));
-  rows.push(["Fecha","Tipo","Concepto","Monto","Fondos externos"].join(","));
+  rows.push(["Fecha","Tipo","Concepto","Monto","Método","Fondos externos"].join(","));
   for(var i=0;i<trans.length;i++){ var t=trans[i];
-    rows.push([t.fecha, t.tipo, '"'+String(t.concepto).replace(/"/g,'""')+'"', t.monto, t.externo?"Si":"No"].join(",")); }
+    rows.push([t.fecha, t.tipo, '"'+String(t.concepto).replace(/"/g,'""')+'"', t.monto, t.metodo||"", t.externo?"Si":"No"].join(",")); }
   if(!trans.length) rows.push(["(Sin gastos ni pagos registrados en este periodo)"].join(","));
   var blob=new Blob(["\ufeff"+rows.join("\r\n")],{type:"text/csv;charset=utf-8"});
   var url=URL.createObjectURL(blob);
@@ -1214,9 +1227,9 @@ function reporteImprimible(){
   if(fis) doc+='<p style="font-size:11px;color:#166534">Ahorro fiscal calculado del periodo: '+fmt(ahorro)+'<\/p>';
   doc+='<h2>Listado de gastos y pagos del periodo<\/h2>';
   if(trans.length){
-    doc+='<table><tr><th>Fecha<\/th><th>Tipo<\/th><th>Concepto<\/th><th>Monto<\/th><th>Origen del pago<\/th><\/tr>';
+    doc+='<table><tr><th>Fecha<\/th><th>Tipo<\/th><th>Concepto<\/th><th>Monto<\/th><th>Método<\/th><th>Origen<\/th><\/tr>';
     for(var i=0;i<trans.length;i++){ var t=trans[i];
-      doc+='<tr><td>'+t.fecha+'<\/td><td>'+esc(t.tipo)+'<\/td><td>'+esc(t.concepto)+'<\/td><td>'+fmt(t.monto)+'<\/td><td>'+(t.externo?"Fondos externos":"Operación normal")+'<\/td><\/tr>'; }
+      doc+='<tr><td>'+t.fecha+'<\/td><td>'+esc(t.tipo)+'<\/td><td>'+esc(t.concepto)+'<\/td><td>'+fmt(t.monto)+'<\/td><td>'+esc(t.metodo||"")+'<\/td><td>'+(t.externo?"Fondos externos":"Normal")+'<\/td><\/tr>'; }
     doc+='<\/table>';
   } else {
     doc+='<p style="color:#999">Sin gastos ni pagos registrados en este periodo.<\/p>';
@@ -1241,7 +1254,8 @@ function reporteImprimible(){
 var ADB_DEFAULT_SHAPE={
   fijosMensuales:[], fijosAnuales:[], creditos:[], variables:[], pagosMensuales:[], pagosAnuales:[],
   proveedores:{}, mesesProcesados:[], fiscal:[], mercancia:[], sueldos:[], pagosSueldos:[],
-  config:{lockPass:LOCK_PASS, logo:""}
+  ajustesCaja:[],
+  config:{lockPass:LOCK_PASS, logo:"", saldoInicialBanco:0, saldoInicialEfectivo:0, fechaSaldoInicial:""}
 };
 function respaldarAdmin(){
   var data=JSON.stringify(ADB, null, 2);
@@ -1277,6 +1291,7 @@ function aMercancia(id){
   h+='<div class="fld"><label class="lbl">Fecha</label><input class="inp" type="date" id="mc-fecha" value="'+(m?m.fecha:hoy())+'"/></div></div>';
   h+='<div class="fld"><label class="lbl">Origen de la mercancía</label><input class="inp" id="mc-origen" value="'+esc(m?m.origen:"")+'" placeholder="Ej. proveedor, bazar, importación..."/></div>';
   h+='<div class="fld"><label class="lbl">Nota (opcional)</label><input class="inp" id="mc-nota" value="'+esc(m?m.nota:"")+'"/></div>';
+  h+='<div class="fld"><label class="lbl">Método de pago</label><select class="inp" id="mc-metodo">'+opcionesMetodo(m?m.metodo:"")+'</select></div>';
   h+='<div class="fld"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px"><input type="checkbox" id="mc-externo" '+(m&&m.fondosExternos?"checked":"")+' style="accent-color:#c9a96e;width:15px;height:15px"/> Pagado con fondos externos (no descontar de la utilidad de este mes)</label></div>';
   h+='<div style="display:flex;justify-content:space-between;padding-top:7px">';
   h+=(m?'<button class="btnr" onclick="delMercancia(\''+m.id+'\')">Eliminar</button>':'<span></span>');
@@ -1284,7 +1299,7 @@ function aMercancia(id){
   OM(m?"Editar adquisición":"Nueva adquisición de mercancía", h);
 }
 function saveMercancia(id){
-  var d={monto:parseFloat(ge("mc-monto").value)||0, fecha:ge("mc-fecha").value||hoy(), origen:ge("mc-origen").value.trim(), nota:ge("mc-nota").value||"", fondosExternos:ge("mc-externo").checked};
+  var d={monto:parseFloat(ge("mc-monto").value)||0, fecha:ge("mc-fecha").value||hoy(), origen:ge("mc-origen").value.trim(), nota:ge("mc-nota").value||"", metodo:ge("mc-metodo").value, fondosExternos:ge("mc-externo").checked};
   if(id){ var i=ADB.mercancia.findIndex(function(x){return x.id===id;}); ADB.mercancia[i]=Object.assign({},ADB.mercancia[i],d); }
   else { d.id=uid(); ADB.mercancia.push(d); }
   saveAdmin(); CM(); RMercancia(); RDash();
@@ -1295,6 +1310,9 @@ function delMercancia(id){
   saveAdmin(); CM(); RMercancia(); RDash();
 }
 function RMercancia(){
+  var ymM=mesActual();
+  ge("merc-mes-lbl").textContent="Comprado en "+nombreMes(ymM);
+  ge("merc-mes").textContent=fmt(gastosMercanciaMes(ymM));
   ge("merc-total").textContent=fmt(gastosMercanciaTotal());
   var el=ge("list-mercancia"); if(!el) return;
   if(!ADB.mercancia.length){ el.innerHTML='<div class="sm mut">Sin adquisiciones registradas.</div>'; return; }
@@ -1405,7 +1423,11 @@ function RSueldos(){
       var bonosDelMes=ADB.pagosSueldos.filter(function(p){return p.sueldoId===s.id&&p.esBonoUnico&&(p.fecha||"").slice(0,7)===ym;});
       if(pagosDelMes.length){
         h+='<div style="margin-top:8px">';
-        for(var j=0;j<pagosDelMes.length;j++) h+='<div class="sm" style="color:#4ade80">Pagado '+pagosDelMes[j].periodo+' el '+pagosDelMes[j].fecha+' &middot; '+fmt(pagosDelMes[j].monto)+(pagosDelMes[j].bono?(' + bono '+fmt(pagosDelMes[j].bono)):'')+'</div>';
+        for(var j=0;j<pagosDelMes.length;j++){
+          var pgs=pagosDelMes[j];
+          h+='<div class="sm" style="color:#4ade80">Pagado '+pgs.periodo+' el '+pgs.fecha+' &middot; '+fmt(pgs.monto)+(pgs.bono?(' + bono '+fmt(pgs.bono)):'')+(pgs.fondosExternos?' <span style="color:#818cf8">(fondos externos)</span>':'')+'</div>';
+          h+='<div style="margin:4px 0 8px;display:flex;gap:6px"><button class="btn btns" onclick="aPagoSueldo(\''+s.id+'\',\''+pgs.periodo+'\',true)">Editar pago</button><button class="btn btns" style="color:#f87171" onclick="rechazarPagoSueldo(\''+s.id+'\',\''+pgs.periodo+'\')">Rechazar / cancelar</button></div>';
+        }
         h+='</div>';
       }
       if(bonosDelMes.length){
@@ -1424,24 +1446,32 @@ function RSueldos(){
   }
   el.innerHTML=h;
 }
-function aPagoSueldo(sueldoId, periodo){
+function aPagoSueldo(sueldoId, periodo, editar){
   var s=ADB.sueldos.find(function(x){return x.id===sueldoId;}); if(!s) return;
-  var h='<div class="g2"><div class="fld"><label class="lbl">Fecha de pago</label><input class="inp" type="date" id="ps-fecha" value="'+hoy()+'"/></div>';
-  h+='<div class="fld"><label class="lbl">Monto</label><input class="inp" type="number" id="ps-monto" value="'+s.monto+'"/></div></div>';
-  h+='<div class="fld"><label class="lbl">Bono (opcional)</label><input class="inp" type="number" id="ps-bono" value="0"/></div>';
-  h+='<div class="fld"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px"><input type="checkbox" id="ps-externo" style="accent-color:#c9a96e;width:15px;height:15px"/> Pagado con fondos externos (no descontar de la utilidad de este mes)</label></div>';
+  var pg=editar?ADB.pagosSueldos.find(function(p){return p.sueldoId===sueldoId&&p.periodo===periodo;}):null;
+  var h='<div class="g2"><div class="fld"><label class="lbl">Fecha de pago</label><input class="inp" type="date" id="ps-fecha" value="'+(pg?pg.fecha:hoy())+'"/></div>';
+  h+='<div class="fld"><label class="lbl">Monto</label><input class="inp" type="number" id="ps-monto" value="'+(pg?pg.monto:s.monto)+'"/></div></div>';
+  h+='<div class="fld"><label class="lbl">Bono (opcional)</label><input class="inp" type="number" id="ps-bono" value="'+(pg?(pg.bono||0):0)+'"/></div>';
+  h+='<div class="fld"><label class="lbl">Método de pago</label><select class="inp" id="ps-metodo">'+opcionesMetodo(pg?pg.metodo:"")+'</select></div>';
+  h+='<div class="fld"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px"><input type="checkbox" id="ps-externo" '+(pg&&pg.fondosExternos?"checked":"")+' style="accent-color:#c9a96e;width:15px;height:15px"/> Pagado con fondos externos (no descontar de la utilidad de este mes)</label></div>';
   h+='<div style="display:flex;justify-content:flex-end;padding-top:7px"><button class="btna" onclick="guardarPagoSueldo(\''+sueldoId+'\',\''+periodo+'\')">Guardar</button></div>';
-  OM("Registrar pago · "+s.nombre, h);
+  OM((pg?"Editar pago · ":"Registrar pago · ")+s.nombre+" ("+periodo+")", h);
+}
+function rechazarPagoSueldo(sueldoId, periodo){
+  if(!confirm("Marcar este pago de sueldo como cancelado? Volverá a aparecer como pendiente.")) return;
+  ADB.pagosSueldos=ADB.pagosSueldos.filter(function(p){return !(p.sueldoId===sueldoId&&p.periodo===periodo);});
+  saveAdmin(); RSueldos(); RDash();
 }
 function guardarPagoSueldo(sueldoId, periodo){
   ADB.pagosSueldos=ADB.pagosSueldos.filter(function(p){return !(p.sueldoId===sueldoId&&p.periodo===periodo);});
-  ADB.pagosSueldos.push({id:uid(), sueldoId:sueldoId, periodo:periodo, fecha:ge("ps-fecha").value, monto:parseFloat(ge("ps-monto").value)||0, bono:parseFloat(ge("ps-bono").value)||0, fondosExternos:ge("ps-externo").checked});
+  ADB.pagosSueldos.push({id:uid(), sueldoId:sueldoId, periodo:periodo, fecha:ge("ps-fecha").value, monto:parseFloat(ge("ps-monto").value)||0, bono:parseFloat(ge("ps-bono").value)||0, metodo:ge("ps-metodo").value, fondosExternos:ge("ps-externo").checked});
   saveAdmin(); CM(); RSueldos(); RDash();
 }
 function aBonoUnico(sueldoId){
   var s=ADB.sueldos.find(function(x){return x.id===sueldoId;}); if(!s) return;
   var h='<div class="g2"><div class="fld"><label class="lbl">Fecha</label><input class="inp" type="date" id="bu-fecha" value="'+hoy()+'"/></div>';
   h+='<div class="fld"><label class="lbl">Monto del bono</label><input class="inp" type="number" id="bu-monto"/></div></div>';
+  h+='<div class="fld"><label class="lbl">Método de pago</label><select class="inp" id="bu-metodo">'+opcionesMetodo("")+'</select></div>';
   h+='<div class="sm mut" style="margin-bottom:8px">Este bono es único: no se repite mes con mes ni forma parte del pago periódico.</div>';
   h+='<div class="fld"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px"><input type="checkbox" id="bu-externo" style="accent-color:#c9a96e;width:15px;height:15px"/> Pagado con fondos externos (no descontar de la utilidad de este mes)</label></div>';
   h+='<div style="display:flex;justify-content:flex-end;padding-top:7px"><button class="btna" onclick="guardarBonoUnico(\''+sueldoId+'\')">Guardar</button></div>';
@@ -1449,10 +1479,198 @@ function aBonoUnico(sueldoId){
 }
 function guardarBonoUnico(sueldoId){
   var monto=parseFloat(ge("bu-monto").value)||0;
-  ADB.pagosSueldos.push({id:uid(), sueldoId:sueldoId, periodo:null, esBonoUnico:true, fecha:ge("bu-fecha").value, monto:monto, bono:0, fondosExternos:ge("bu-externo").checked});
+  ADB.pagosSueldos.push({id:uid(), sueldoId:sueldoId, periodo:null, esBonoUnico:true, fecha:ge("bu-fecha").value, monto:monto, bono:0, metodo:ge("bu-metodo").value, fondosExternos:ge("bu-externo").checked});
   saveAdmin(); CM(); RSueldos(); RDash();
 }
 
 // Arranca la sincronizacion en segundo plano de inmediato (no espera al login),
 // para que la contrasena guardada en Firestore este disponible al verificarla.
 boot();
+
+// ── CAJA: METODOS DE PAGO Y CONCILIACION ────────────────────────────────────
+// Banco = tarjeta + transferencia (el dinero entra o sale de la cuenta).
+// Efectivo = efectivo. Un metodo vacio se asume efectivo por compatibilidad
+// con los registros anteriores a esta funcion.
+var METODOS=[["efectivo","Efectivo"],["transferencia","Transferencia"],["tarjeta","Tarjeta"]];
+function opcionesMetodo(sel){
+  var h=""; sel=sel||"efectivo";
+  for(var i=0;i<METODOS.length;i++) h+='<option value="'+METODOS[i][0]+'" '+(sel===METODOS[i][0]?"selected":"")+'>'+METODOS[i][1]+'</option>';
+  return h;
+}
+function cuentaDe(metodo){ return (metodo==="tarjeta"||metodo==="transferencia")?"banco":"efectivo"; }
+
+// Ingresos del mes desglosados por metodo de pago.
+function ingresosPorMetodo(ym){
+  var r={efectivo:0,tarjeta:0,transferencia:0};
+  var arch=DATOS.archivo.find(function(a){return a.mes===ym;});
+  if(arch){ r.efectivo=arch.efectivo||0; r.tarjeta=arch.tarjeta||0; r.transferencia=arch.transferencia||0; return r; }
+  for(var i=0;i<DATOS.ventas.length;i++){
+    var v=DATOS.ventas[i];
+    if((v.fecha||"").slice(0,7)!==ym||v.cancelacion||v.esApartado) continue;
+    var m=v.mpago||"efectivo"; if(r[m]===undefined) m="efectivo";
+    r[m]+=v.total||0;
+  }
+  for(var i=0;i<DATOS.apartados.length;i++){
+    var apa=DATOS.apartados[i];
+    if(apa.estado==="cancelado"||!apa.abonos) continue;
+    for(var j=0;j<apa.abonos.length;j++){
+      var ab=apa.abonos[j];
+      if((ab.fecha||"").slice(0,7)!==ym) continue;
+      var m=ab.mpago||"efectivo"; if(r[m]===undefined) m="efectivo";
+      r[m]+=ab.monto||0;
+    }
+  }
+  return r;
+}
+
+// Recorre TODOS los gastos registrados y los agrupa por cuenta (banco/efectivo).
+// desde: fecha ISO opcional — solo cuenta movimientos en o despues de esa fecha.
+function salidasPorCuenta(desde){
+  var r={banco:0,efectivo:0};
+  function add(fecha,monto,metodo,externo){
+    if(externo) return;                 // no salio de estas cuentas
+    if(!fecha) return;
+    if(desde && fecha<desde) return;
+    r[cuentaDe(metodo)]+=monto||0;
+  }
+  for(var i=0;i<ADB.pagosMensuales.length;i++){ var p=ADB.pagosMensuales[i]; add(p.fecha,(p.monto||0)+(p.bono||0),p.metodo,p.fondosExternos); }
+  for(var i=0;i<ADB.pagosAnuales.length;i++){ var p=ADB.pagosAnuales[i]; add(p.fecha,p.monto,p.metodo,p.fondosExternos); }
+  for(var i=0;i<ADB.creditos.length;i++){ var c=ADB.creditos[i]; for(var j=0;j<(c.pagos||[]).length;j++){ var pg=c.pagos[j]; add(pg.fecha,pg.monto,pg.metodo,pg.fondosExternos); } }
+  for(var i=0;i<ADB.variables.length;i++){ var v=ADB.variables[i]; add(v.fecha,v.monto,v.metodo,v.fondosExternos); }
+  for(var i=0;i<ADB.mercancia.length;i++){ var m=ADB.mercancia[i]; add(m.fecha,m.monto,m.metodo,m.fondosExternos); }
+  for(var i=0;i<ADB.pagosSueldos.length;i++){ var p=ADB.pagosSueldos[i]; add(p.fecha,(p.monto||0)+(p.bono||0),p.metodo,p.fondosExternos); }
+  for(var pid in ADB.proveedores){ var pagos=ADB.proveedores[pid].pagos||[];
+    for(var i=0;i<pagos.length;i++){ var pg=pagos[i]; if(pg.esCierre||pg.esAjuste) continue; add(pg.fecha,pg.monto,pg.metodo,pg.fondosExternos); } }
+  return r;
+}
+
+// Entradas acumuladas por cuenta desde una fecha (recorre meses cerrados y el activo).
+function entradasPorCuenta(desde){
+  var r={banco:0,efectivo:0};
+  if(!desde) return r;
+  var ymIni=desde.slice(0,7), ymHoy=mesActual();
+  var d=new Date(ymIni+"-01T00:00:00");
+  while(d.toISOString().slice(0,7)<=ymHoy){
+    var ym=d.toISOString().slice(0,7);
+    var im=ingresosPorMetodo(ym);
+    r.efectivo+=im.efectivo; r.banco+=im.tarjeta+im.transferencia;
+    d.setMonth(d.getMonth()+1);
+  }
+  return r;
+}
+
+function ajustesPorCuenta(desde){
+  var r={banco:0,efectivo:0};
+  for(var i=0;i<ADB.ajustesCaja.length;i++){
+    var a=ADB.ajustesCaja[i];
+    if(desde && (a.fecha||"")<desde) continue;
+    r[a.cuenta]=(r[a.cuenta]||0)+(a.monto||0); // monto puede ser negativo
+  }
+  return r;
+}
+
+function RCaja(){
+  var cfg=ADB.config||{}, desde=cfg.fechaSaldoInicial||"";
+  var ym=mesActual();
+  var im=ingresosPorMetodo(ym);
+  var totIngr=im.efectivo+im.tarjeta+im.transferencia;
+
+  // Ingresos del mes por metodo
+  var h='';
+  var filas=[["Efectivo",im.efectivo,"#4ade80"],["Transferencia",im.transferencia,"#818cf8"],["Tarjeta",im.tarjeta,"#c9a96e"]];
+  for(var i=0;i<filas.length;i++){
+    var pct=totIngr>0?Math.round((filas[i][1]/totIngr)*100):0;
+    h+='<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>'+filas[i][0]+'</span><span style="color:'+filas[i][2]+';font-weight:600">'+fmt(filas[i][1])+' <span class="mut sm">('+pct+'%)</span></span></div><div class="progwrap"><div class="progbar" style="width:'+pct+'%;background:'+filas[i][2]+'"></div></div></div>';
+  }
+  h+='<div class="fr" style="border-top:1px solid #1e1c18;padding-top:8px;margin-top:4px"><span class="mut">Total del mes</span><span class="gold" style="font-weight:700">'+fmt(totIngr)+'</span></div>';
+  ge("caja-metodos").innerHTML=h;
+
+  // Conciliacion
+  if(!desde){
+    ge("caja-concil").innerHTML='<div class="sm mut">Captura tus saldos iniciales para activar la conciliación. El sistema calculará desde esa fecha en adelante cuánto deberías tener en cada cuenta.</div>';
+    return;
+  }
+  var ent=entradasPorCuenta(desde), sal=salidasPorCuenta(desde), aj=ajustesPorCuenta(desde);
+  var cuentas=[
+    {k:"banco", nom:"Banco", ini:cfg.saldoInicialBanco||0, real:cfg.saldoRealBanco},
+    {k:"efectivo", nom:"Efectivo", ini:cfg.saldoInicialEfectivo||0, real:cfg.saldoRealEfectivo}
+  ];
+  var h2='<div class="g2">';
+  for(var i=0;i<cuentas.length;i++){
+    var c=cuentas[i];
+    var esperado=c.ini+(ent[c.k]||0)-(sal[c.k]||0)+(aj[c.k]||0);
+    var tieneReal=(c.real!==undefined&&c.real!==null&&c.real!=="");
+    var dif=tieneReal?(c.real-esperado):0;
+    h2+='<div class="card" style="margin-bottom:0">';
+    h2+='<div class="h3" style="margin-bottom:8px">'+c.nom+'</div>';
+    h2+='<div class="fr sm"><span class="mut">Saldo inicial</span><span>'+fmt(c.ini)+'</span></div>';
+    h2+='<div class="fr sm"><span class="mut">+ Entradas</span><span style="color:#4ade80">'+fmt(ent[c.k]||0)+'</span></div>';
+    h2+='<div class="fr sm"><span class="mut">− Salidas</span><span style="color:#f87171">'+fmt(sal[c.k]||0)+'</span></div>';
+    if(aj[c.k]) h2+='<div class="fr sm"><span class="mut">± Ajustes</span><span style="color:#f59e0b">'+fmt(aj[c.k])+'</span></div>';
+    h2+='<div class="fr" style="border-top:1px solid #1e1c18;padding-top:6px;margin-top:4px"><span class="mut">Saldo esperado</span><span class="gold" style="font-weight:700">'+fmt(esperado)+'</span></div>';
+    h2+='<div class="fr"><span class="mut sm">Saldo real</span><span style="font-weight:700">'+(tieneReal?fmt(c.real):"—")+'</span></div>';
+    if(tieneReal){
+      var col=Math.abs(dif)<1?"#4ade80":(dif>0?"#f59e0b":"#f87171");
+      var txt=Math.abs(dif)<1?"Cuadrado":(dif>0?"Sobra "+fmt(dif):"Falta "+fmt(Math.abs(dif)));
+      h2+='<div class="fr" style="margin-top:6px"><span class="mut sm">Diferencia</span><span style="color:'+col+';font-weight:700">'+txt+'</span></div>';
+      if(Math.abs(dif)>=1) h2+='<div style="margin-top:8px"><button class="btn btns" onclick="aAjusteCaja(\''+c.k+'\','+dif+')">Registrar movimiento</button></div>';
+    }
+    h2+='</div>';
+  }
+  h2+='</div>';
+  ge("caja-concil").innerHTML=h2;
+
+  // Bitacora de ajustes
+  var ha="";
+  var aOrd=ADB.ajustesCaja.slice().sort(function(a,b){return (b.fecha||"").localeCompare(a.fecha||"");});
+  for(var i=0;i<Math.min(aOrd.length,8);i++){ var a=aOrd[i];
+    ha+='<div class="fr sm"><span class="mut">'+a.fecha+' &middot; '+(a.cuenta==="banco"?"Banco":"Efectivo")+(a.nota?(" — "+esc(a.nota)):"")+'</span><span style="color:'+(a.monto>=0?"#4ade80":"#f87171")+'">'+(a.monto>=0?"+":"")+fmt(a.monto)+'</span></div>';
+  }
+  ge("caja-ajustes").innerHTML=ha||'<div class="sm mut">Sin movimientos registrados.</div>';
+}
+
+function aSaldosIniciales(){
+  var cfg=ADB.config||{};
+  var h='<div class="sm mut" style="margin-bottom:12px">Captura cuánto tienes hoy en cada cuenta y desde qué fecha empieza el conteo. A partir de ahí el sistema calcula solo el saldo esperado.</div>';
+  h+='<div class="fld"><label class="lbl">Fecha de inicio del conteo</label><input class="inp" type="date" id="si-fecha" value="'+(cfg.fechaSaldoInicial||hoy())+'"/></div>';
+  h+='<div class="g2"><div class="fld"><label class="lbl">Saldo inicial en banco</label><input class="inp" type="number" id="si-banco" value="'+(cfg.saldoInicialBanco||0)+'"/></div>';
+  h+='<div class="fld"><label class="lbl">Saldo inicial en efectivo</label><input class="inp" type="number" id="si-efectivo" value="'+(cfg.saldoInicialEfectivo||0)+'"/></div></div>';
+  h+='<div style="display:flex;justify-content:flex-end;padding-top:7px"><button class="btna" onclick="guardarSaldosIniciales()">Guardar</button></div>';
+  OM("Saldos iniciales", h);
+}
+function guardarSaldosIniciales(){
+  ADB.config=ADB.config||{};
+  ADB.config.fechaSaldoInicial=ge("si-fecha").value||hoy();
+  ADB.config.saldoInicialBanco=parseFloat(ge("si-banco").value)||0;
+  ADB.config.saldoInicialEfectivo=parseFloat(ge("si-efectivo").value)||0;
+  saveAdmin(); CM(); RCaja();
+}
+function aSaldosReales(){
+  var cfg=ADB.config||{};
+  var h='<div class="sm mut" style="margin-bottom:12px">Captura lo que tienes ahora mismo. El sistema lo compara con el saldo esperado y te muestra la diferencia.</div>';
+  h+='<div class="g2"><div class="fld"><label class="lbl">Saldo real en banco</label><input class="inp" type="number" id="sr-banco" value="'+(cfg.saldoRealBanco!==undefined?cfg.saldoRealBanco:"")+'"/></div>';
+  h+='<div class="fld"><label class="lbl">Saldo real en efectivo</label><input class="inp" type="number" id="sr-efectivo" value="'+(cfg.saldoRealEfectivo!==undefined?cfg.saldoRealEfectivo:"")+'"/></div></div>';
+  h+='<div style="display:flex;justify-content:flex-end;padding-top:7px"><button class="btna" onclick="guardarSaldosReales()">Guardar</button></div>';
+  OM("Saldos reales de hoy", h);
+}
+function guardarSaldosReales(){
+  ADB.config=ADB.config||{};
+  var b=ge("sr-banco").value, e=ge("sr-efectivo").value;
+  ADB.config.saldoRealBanco=(b===""?undefined:parseFloat(b)||0);
+  ADB.config.saldoRealEfectivo=(e===""?undefined:parseFloat(e)||0);
+  ADB.config.fechaSaldoReal=hoy();
+  saveAdmin(); CM(); RCaja();
+}
+function aAjusteCaja(cuenta, sugerido){
+  var h='<div class="sm mut" style="margin-bottom:12px">Registra un movimiento que explique la diferencia: un retiro personal, una comisión bancaria, una propina. Queda documentado y el saldo esperado se recalcula.</div>';
+  h+='<div class="fld"><label class="lbl">Cuenta</label><select class="inp" id="ac-cuenta"><option value="banco" '+(cuenta==="banco"?"selected":"")+'>Banco</option><option value="efectivo" '+(cuenta==="efectivo"?"selected":"")+'>Efectivo</option></select></div>';
+  h+='<div class="g2"><div class="fld"><label class="lbl">Monto (negativo si salió)</label><input class="inp" type="number" id="ac-monto" value="'+(sugerido||0)+'"/></div>';
+  h+='<div class="fld"><label class="lbl">Fecha</label><input class="inp" type="date" id="ac-fecha" value="'+hoy()+'"/></div></div>';
+  h+='<div class="fld"><label class="lbl">Nota</label><input class="inp" id="ac-nota" placeholder="Ej. comisión bancaria, retiro personal"/></div>';
+  h+='<div style="display:flex;justify-content:flex-end;padding-top:7px"><button class="btna" onclick="guardarAjusteCaja()">Guardar</button></div>';
+  OM("Registrar movimiento", h);
+}
+function guardarAjusteCaja(){
+  ADB.ajustesCaja.push({id:uid(), cuenta:ge("ac-cuenta").value, monto:parseFloat(ge("ac-monto").value)||0, fecha:ge("ac-fecha").value||hoy(), nota:ge("ac-nota").value||""});
+  saveAdmin(); CM(); RCaja();
+}

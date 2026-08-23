@@ -132,6 +132,7 @@ input,select,textarea{font-family:inherit;outline:none;color:#f0ebe3}
     <button class="nb" data-tab="mercancia" onclick="setTab('mercancia')">Mercancía</button>
     <button class="nb" data-tab="sueldos" onclick="setTab('sueldos')">Sueldos</button>
     <button class="nb" data-tab="provs" onclick="setTab('provs')">Proveedores</button>
+    <button class="nb" data-tab="caja" onclick="setTab('caja')">Caja</button>
     <button class="nb" data-tab="fiscal" onclick="setTab('fiscal')">Fiscal</button>
     <button class="nb" data-tab="hist" onclick="setTab('hist')">Histórico</button>
   </div>
@@ -197,8 +198,9 @@ input,select,textarea{font-family:inherit;outline:none;color:#f0ebe3}
   <div class="tab" id="tab-mercancia">
     <div class="h2">Adquisición de mercancía</div>
     <div class="card">
-      <div class="kl">Total histórico invertido</div>
-      <div id="merc-total" style="font-size:22px;font-weight:700;color:#c9a96e"></div>
+      <div class="kl" id="merc-mes-lbl">Comprado este mes</div>
+      <div id="merc-mes" style="font-size:24px;font-weight:700;color:#c9a96e"></div>
+      <div class="sm mut" style="margin-top:6px;padding-top:6px;border-top:1px solid #1e1c18">Total histórico invertido: <span id="merc-total"></span></div>
     </div>
     <div class="bar"><button class="btna" onclick="aMercancia()">+ Agregar adquisición</button></div>
     <div id="list-mercancia"></div>
@@ -209,6 +211,25 @@ input,select,textarea{font-family:inherit;outline:none;color:#f0ebe3}
     <div class="h2">Sueldos</div>
     <div class="bar"><button class="btna" onclick="aSueldo()">+ Agregar trabajador</button></div>
     <div id="list-sueldos"></div>
+  </div>
+
+  <!-- CAJA -->
+  <div class="tab" id="tab-caja">
+    <div class="h2">Caja y conciliación</div>
+    <div class="card">
+      <div class="h3">Ingresos del mes por método de pago</div>
+      <div id="caja-metodos"></div>
+    </div>
+    <div class="bar">
+      <button class="btn" onclick="aSaldosIniciales()">Saldos iniciales</button>
+      <button class="btna" onclick="aSaldosReales()">Capturar saldos de hoy</button>
+      <button class="btn" onclick="aAjusteCaja('banco',0)">Registrar movimiento</button>
+    </div>
+    <div id="caja-concil"></div>
+    <div class="card">
+      <div class="h3">Movimientos registrados</div>
+      <div id="caja-ajustes"></div>
+    </div>
   </div>
 
   <!-- FISCAL -->
@@ -265,6 +286,7 @@ input,select,textarea{font-family:inherit;outline:none;color:#f0ebe3}
   <button class="mnb" data-tab="mercancia" onclick="setTab('mercancia')"><span class="ico">&#128230;</span>Mercancía</button>
   <button class="mnb" data-tab="sueldos" onclick="setTab('sueldos')"><span class="ico">&#128101;</span>Sueldos</button>
   <button class="mnb" data-tab="provs" onclick="setTab('provs')"><span class="ico">&#128100;</span>Provs</button>
+  <button class="mnb" data-tab="caja" onclick="setTab('caja')"><span class="ico">&#128176;</span>Caja</button>
   <button class="mnb" data-tab="fiscal" onclick="setTab('fiscal')"><span class="ico">&#128203;</span>Fiscal</button>
   <button class="mnb" data-tab="hist" onclick="setTab('hist')"><span class="ico">&#128200;</span>Histórico</button>
 </div>
