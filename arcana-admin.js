@@ -68,6 +68,7 @@ var ADB = {
   sueldos: [],
   pagosSueldos: [],
   ajustesCaja: [],
+  mesesCerradosAdmin: [],
   config: {lockPass: "JDH1", logo: "", saldoInicialBanco: 0, saldoInicialEfectivo: 0, fechaSaldoInicial: ""}
 };
 var DATOS = { provs: [], archivo: [], ventas: [], apartados: [], saldos: [] };
@@ -368,6 +369,14 @@ function setTab(name){
   renderAll();
 }
 function renderAll(){
+  var selM=ge("mes-sel"); if(selM&&!selM.value) selM.value=mesTrabajo;
+  var sello=ge("mes-sello");
+  if(sello){
+    var cerrado=esMesCerradoAdmin(mesTrabajo);
+    sello.textContent=cerrado?"✓ Mes revisado":"Marcar revisado";
+    sello.style.color=cerrado?"#4ade80":"#a09480";
+    sello.style.borderColor=cerrado?"#1c4a2c":"#2a2620";
+  }
   procesarDomiciliados();
   limpiarHuerfanos();
   applyConfig();
@@ -398,6 +407,39 @@ function limpiarHuerfanos(){
 
 // ── Cálculos compartidos ─────────────────────────────────────────────────────
 function mesActual(){ return hoy().slice(0,7); }
+// Mes en el que se está capturando. Independiente del calendario y del cierre de
+// Vintage: permite seguir registrando y corrigiendo un mes anterior sin límite.
+var mesTrabajo = hoy().slice(0,7);
+function mesT(){ return mesTrabajo; }
+// Fecha sugerida en los formularios: hoy si estoy en el mes actual, o el último
+// día del mes de trabajo si estoy capturando un mes pasado.
+function fechaSugerida(){ return mesTrabajo===mesActual()?hoy():ultimoDiaDelMes(mesTrabajo); }
+function esMesCerradoAdmin(ym){ return (ADB.mesesCerradosAdmin||[]).indexOf(ym)!==-1; }
+function setMesTrabajo(v){
+  if(!v) return;
+  mesTrabajo=v;
+  var b=ge("mes-banner");
+  if(b){
+    if(mesTrabajo!==mesActual()){
+      b.style.display="block";
+      b.innerHTML='Estás capturando en <b>'+nombreMes(mesTrabajo)+'</b>, no en el mes actual. <button class="btn btns" style="margin-left:8px" onclick="volverMesActual()">Volver a '+nombreMes(mesActual())+'</button>';
+    } else b.style.display="none";
+  }
+  renderAll();
+}
+function volverMesActual(){ var sel=ge("mes-sel"); if(sel) sel.value=mesActual(); setMesTrabajo(mesActual()); }
+function toggleCierreAdmin(){
+  var ym=mesT();
+  ADB.mesesCerradosAdmin=ADB.mesesCerradosAdmin||[];
+  var i=ADB.mesesCerradosAdmin.indexOf(ym);
+  if(i===-1){
+    if(!confirm("Marcar "+nombreMes(ym)+" como revisado y cerrado? Es solo un sello visual: el mes sigue siendo editable.")) return;
+    ADB.mesesCerradosAdmin.push(ym);
+  } else {
+    ADB.mesesCerradosAdmin.splice(i,1);
+  }
+  saveAdmin(); renderAll();
+}
 
 // Ingresos del mes, replicando exactamente la logica de cerrarMes en Arcana Vintage:
 // - Mes ya cerrado: se usa el "ingreso" ya calculado y archivado (no el "total" bruto,
@@ -522,7 +564,7 @@ function impuestoTeoricoMes(ym){
 
 // ── DASHBOARD ────────────────────────────────────────────────────────────────
 function RDash(){
-  var ym=mesActual();
+  var ym=mesT();
   var ingr=ingresosMes(ym), gf=gastosFijosMesPagado(ym), gv=gastosVariablesMes(ym), pp=pagosProveedoresMes(ym), gs=gastosSueldosMes(ym), gm=gastosMercanciaMes(ym);
   var fis=impuestoMes(ym), impuesto=fis?(fis.impuestoDeterminado||0):0, ahorro=fis?(fis.ahorro||0):0;
   var utilidad=ingr-gf-gv-pp-gs-gm-impuesto;
@@ -640,7 +682,7 @@ function delFijoMensual(id){
 function renderMensuales(){
   var el=ge("list-mensual"); if(!el) return;
   if(!ADB.fijosMensuales.length){ el.innerHTML='<div class="sm mut">Sin gastos fijos mensuales registrados.</div>'; return; }
-  var ym=mesActual();
+  var ym=mesT();
   var h="";
   for(var i=0;i<ADB.fijosMensuales.length;i++){
     var f=ADB.fijosMensuales[i];
@@ -664,9 +706,9 @@ function renderMensuales(){
 }
 function aPagoMensual(fijoId, editar){
   var f=ADB.fijosMensuales.find(function(x){return x.id===fijoId;}); if(!f) return;
-  var ym=mesActual();
+  var ym=mesT();
   var pago=editar?ADB.pagosMensuales.find(function(p){return p.fijoId===fijoId&&p.mes===ym;}):null;
-  var h='<div class="g2"><div class="fld"><label class="lbl">Fecha de pago</label><input class="inp" type="date" id="pm-fecha" value="'+(pago?pago.fecha:hoy())+'"/></div>';
+  var h='<div class="g2"><div class="fld"><label class="lbl">Fecha de pago</label><input class="inp" type="date" id="pm-fecha" value="'+(pago?pago.fecha:fechaSugerida())+'"/></div>';
   h+='<div class="fld"><label class="lbl">Monto</label><input class="inp" type="number" id="pm-monto" value="'+(pago?pago.monto:f.monto)+'"/></div></div>';
   h+='<div class="fld"><label class="lbl">Mes que cubre</label><input class="inp" type="month" id="pm-mes" value="'+ym+'"/></div>';
   h+='<div class="fld"><label class="lbl">Método de pago</label><select class="inp" id="pm-metodo">'+opcionesMetodo(pago?pago.metodo:"")+'</select></div>';
@@ -681,7 +723,7 @@ function guardarPagoMensual(fijoId){
   saveAdmin(); CM(); renderMensuales(); RDash();
 }
 function rechazarPagoMensual(fijoId){
-  var ym=mesActual();
+  var ym=mesT();
   if(!confirm("Marcar este pago como rechazado/cancelado? Volverá a aparecer como pendiente.")) return;
   ADB.pagosMensuales=ADB.pagosMensuales.filter(function(p){return !(p.fijoId===fijoId&&p.mes===ym);});
   saveAdmin(); renderMensuales(); RDash();
@@ -714,7 +756,7 @@ function delFijoAnual(id){
 function renderAnuales(){
   var el=ge("list-anual"); if(!el) return;
   if(!ADB.fijosAnuales.length){ el.innerHTML='<div class="sm mut">Sin suscripciones anuales registradas.</div>'; return; }
-  var anioActual=parseInt(mesActual().slice(0,4));
+  var anioActual=parseInt(mesT().slice(0,4));
   var h="";
   for(var i=0;i<ADB.fijosAnuales.length;i++){
     var f=ADB.fijosAnuales[i];
@@ -737,9 +779,9 @@ function renderAnuales(){
 }
 function aPagoAnual(fijoId, editar){
   var f=ADB.fijosAnuales.find(function(x){return x.id===fijoId;}); if(!f) return;
-  var anioActual=parseInt(mesActual().slice(0,4));
+  var anioActual=parseInt(mesT().slice(0,4));
   var pago=editar?ADB.pagosAnuales.find(function(p){return p.fijoId===fijoId&&p.anio===anioActual;}):null;
-  var h='<div class="g2"><div class="fld"><label class="lbl">Fecha de pago</label><input class="inp" type="date" id="pa-fecha" value="'+(pago?pago.fecha:hoy())+'"/></div>';
+  var h='<div class="g2"><div class="fld"><label class="lbl">Fecha de pago</label><input class="inp" type="date" id="pa-fecha" value="'+(pago?pago.fecha:fechaSugerida())+'"/></div>';
   h+='<div class="fld"><label class="lbl">Monto</label><input class="inp" type="number" id="pa-monto" value="'+(pago?pago.monto:f.monto)+'"/></div></div>';
   h+='<div class="fld"><label class="lbl">Año que cubre</label><input class="inp" type="number" id="pa-anio" value="'+anioActual+'"/></div>';
   h+='<div class="fld"><label class="lbl">Método de pago</label><select class="inp" id="pa-metodo">'+opcionesMetodo(pago?pago.metodo:"")+'</select></div>';
@@ -754,7 +796,7 @@ function guardarPagoAnual(fijoId){
   saveAdmin(); CM(); renderAnuales(); RDash();
 }
 function rechazarPagoAnual(fijoId){
-  var anioActual=parseInt(mesActual().slice(0,4));
+  var anioActual=parseInt(mesT().slice(0,4));
   if(!confirm("Marcar este pago como rechazado/cancelado? Volverá a aparecer como pendiente.")) return;
   ADB.pagosAnuales=ADB.pagosAnuales.filter(function(p){return !(p.fijoId===fijoId&&p.anio===anioActual);});
   saveAdmin(); renderAnuales(); RDash();
@@ -810,7 +852,7 @@ function renderCreditos(){
 }
 function aPagoCredito(credId){
   var c=ADB.creditos.find(function(x){return x.id===credId;}); if(!c) return;
-  var h='<div class="g2"><div class="fld"><label class="lbl">Fecha</label><input class="inp" type="date" id="pc-fecha" value="'+hoy()+'"/></div>';
+  var h='<div class="g2"><div class="fld"><label class="lbl">Fecha</label><input class="inp" type="date" id="pc-fecha" value="'+fechaSugerida()+'"/></div>';
   h+='<div class="fld"><label class="lbl">Monto</label><input class="inp" type="number" id="pc-monto"/></div></div>';
   h+='<div class="fld"><label class="lbl">Método de pago</label><select class="inp" id="pc-metodo">'+opcionesMetodo("")+'</select></div>';
   h+='<div class="fld"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px"><input type="checkbox" id="pc-externo" style="accent-color:#c9a96e;width:15px;height:15px"/> Pagado con fondos externos (no descontar de la utilidad de este mes)</label></div>';
@@ -832,7 +874,7 @@ function aVariable(){
   var h='<div class="fld"><label class="lbl">Categoría</label><select class="inp" id="vr-cat" onchange="if(this.value===\'__nueva__\')ge(\'vr-cat-nueva\').style.display=\'block\';else ge(\'vr-cat-nueva\').style.display=\'none\'">'+opts+'</select></div>';
   h+='<div class="fld" id="vr-cat-nueva" style="display:none"><label class="lbl">Nombre de la nueva categoría</label><input class="inp" id="vr-cat-txt"/></div>';
   h+='<div class="g2"><div class="fld"><label class="lbl">Monto</label><input class="inp" type="number" id="vr-monto"/></div>';
-  h+='<div class="fld"><label class="lbl">Fecha</label><input class="inp" type="date" id="vr-fecha" value="'+hoy()+'"/></div></div>';
+  h+='<div class="fld"><label class="lbl">Fecha</label><input class="inp" type="date" id="vr-fecha" value="'+fechaSugerida()+'"/></div></div>';
   h+='<div class="fld"><label class="lbl">Nota (opcional)</label><input class="inp" id="vr-nota"/></div>';
   h+='<div class="fld"><label class="lbl">Método de pago</label><select class="inp" id="vr-metodo">'+opcionesMetodo("")+'</select></div>';
   h+='<div class="fld"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px"><input type="checkbox" id="vr-externo" style="accent-color:#c9a96e;width:15px;height:15px"/> Pagado con fondos externos (no descontar de la utilidad de este mes)</label></div>';
@@ -851,7 +893,7 @@ function delVariable(id){
   saveAdmin(); RVariables(); RDash();
 }
 function RVariables(){
-  var ym=mesActual();
+  var ym=mesT();
   ge("var-mes-tit").textContent=nombreMes(ym);
   var deEsteMes=ADB.variables.filter(function(v){return (v.fecha||"").slice(0,7)===ym;}).sort(function(a,b){return (b.fecha||"").localeCompare(a.fecha||"");});
   var tot=0; for(var i=0;i<deEsteMes.length;i++) tot+=deEsteMes[i].monto||0;
@@ -913,7 +955,7 @@ function RProvs(){
 function aPagoProv(pid){
   var pd=ADB.proveedores[pid]||{saldo:0,pagos:[]};
   var h='<div class="g2"><div class="fld"><label class="lbl">Monto a pagar</label><input class="inp" type="number" id="pp-monto" value="'+pd.saldo+'"/></div>';
-  h+='<div class="fld"><label class="lbl">Fecha</label><input class="inp" type="date" id="pp-fecha" value="'+hoy()+'"/></div></div>';
+  h+='<div class="fld"><label class="lbl">Fecha</label><input class="inp" type="date" id="pp-fecha" value="'+fechaSugerida()+'"/></div></div>';
   h+='<div class="fld"><label class="lbl">Método de pago</label><select class="inp" id="pp-metodo"><option value="efectivo">Efectivo</option><option value="transferencia">Transferencia</option><option value="tarjeta">Tarjeta</option></select></div>';
   h+='<div style="display:flex;gap:6px;margin-bottom:10px">';
   h+='<button class="btn btns" onclick="ge(\'pp-monto\').value='+(pd.saldo||0)+'">Pagar todo ('+fmt(pd.saldo)+')</button>';
@@ -1045,8 +1087,8 @@ function primerMesConDatos(){
 }
 
 function RHist(){
-  var repInput=ge("rep-periodo"); if(repInput&&!repInput.value) repInput.value=mesActual();
-  var ym=mesActual();
+  var repInput=ge("rep-periodo"); if(repInput&&!repInput.value) repInput.value=mesT();
+  var ym=mesT();
   var prevD=new Date(ym+"-01T00:00:00"); prevD.setMonth(prevD.getMonth()-1);
   var ymPrev=prevD.toISOString().slice(0,7);
 
@@ -1255,7 +1297,7 @@ function reporteImprimible(){
 var ADB_DEFAULT_SHAPE={
   fijosMensuales:[], fijosAnuales:[], creditos:[], variables:[], pagosMensuales:[], pagosAnuales:[],
   proveedores:{}, mesesProcesados:[], fiscal:[], mercancia:[], sueldos:[], pagosSueldos:[],
-  ajustesCaja:[],
+  ajustesCaja:[], mesesCerradosAdmin:[],
   config:{lockPass:LOCK_PASS, logo:"", saldoInicialBanco:0, saldoInicialEfectivo:0, fechaSaldoInicial:""}
 };
 function respaldarAdmin(){
@@ -1289,7 +1331,7 @@ function restaurarAdmin(file){
 function aMercancia(id){
   var m=id?ADB.mercancia.find(function(x){return x.id===id;}):null;
   var h='<div class="g2"><div class="fld"><label class="lbl">Monto</label><input class="inp" type="number" id="mc-monto" value="'+(m?m.monto:"")+'"/></div>';
-  h+='<div class="fld"><label class="lbl">Fecha</label><input class="inp" type="date" id="mc-fecha" value="'+(m?m.fecha:hoy())+'"/></div></div>';
+  h+='<div class="fld"><label class="lbl">Fecha</label><input class="inp" type="date" id="mc-fecha" value="'+(m?m.fecha:fechaSugerida())+'"/></div></div>';
   h+='<div class="fld"><label class="lbl">Origen de la mercancía</label><input class="inp" id="mc-origen" value="'+esc(m?m.origen:"")+'" placeholder="Ej. proveedor, bazar, importación..."/></div>';
   h+='<div class="fld"><label class="lbl">Nota (opcional)</label><input class="inp" id="mc-nota" value="'+esc(m?m.nota:"")+'"/></div>';
   h+='<div class="fld"><label class="lbl">Método de pago</label><select class="inp" id="mc-metodo">'+opcionesMetodo(m?m.metodo:"")+'</select></div>';
@@ -1311,13 +1353,15 @@ function delMercancia(id){
   saveAdmin(); CM(); RMercancia(); RDash();
 }
 function RMercancia(){
-  var ymM=mesActual();
+  var ymM=mesT();
   ge("merc-mes-lbl").textContent="Comprado en "+nombreMes(ymM);
   ge("merc-mes").textContent=fmt(gastosMercanciaMes(ymM));
   ge("merc-total").textContent=fmt(gastosMercanciaTotal());
   var el=ge("list-mercancia"); if(!el) return;
-  if(!ADB.mercancia.length){ el.innerHTML='<div class="sm mut">Sin adquisiciones registradas.</div>'; return; }
-  var lista=ADB.mercancia.slice().sort(function(a,b){return (b.fecha||"").localeCompare(a.fecha||"");});
+  // Solo las adquisiciones del mes de trabajo: cada compra se ve en su propio mes.
+  var lista=ADB.mercancia.filter(function(m){return (m.fecha||"").slice(0,7)===ymM;})
+                         .sort(function(a,b){return (b.fecha||"").localeCompare(a.fecha||"");});
+  if(!lista.length){ el.innerHTML='<div class="sm mut">Sin adquisiciones registradas en '+nombreMes(ymM)+'.</div>'; return; }
   var h='<div class="tw"><table class="tbl"><thead><tr><th>Fecha</th><th>Origen</th><th>Nota</th><th>Monto</th><th></th></tr></thead><tbody>';
   for(var i=0;i<lista.length;i++){ var m=lista[i];
     h+='<tr><td class="mut">'+m.fecha+'</td><td>'+esc(m.origen)+'</td><td class="mut sm">'+esc(m.nota||"")+(m.fondosExternos?' <span style="color:#818cf8">(externo)</span>':'')+'</td><td class="gold">'+fmt(m.monto)+'</td><td><button class="btn btns" onclick="aMercancia(\''+m.id+'\')">Editar</button></td></tr>';
@@ -1403,7 +1447,7 @@ function delSueldo(id){
 function RSueldos(){
   var el=ge("list-sueldos"); if(!el) return;
   if(!ADB.sueldos.length){ el.innerHTML='<div class="sm mut">Sin trabajadores registrados.</div>'; return; }
-  var ym=mesActual();
+  var ym=mesT();
   var tipoLabel={mensual:"Mensual",quincenal:"Quincenal",unico:"Pago único"};
   var h="";
   for(var i=0;i<ADB.sueldos.length;i++){
@@ -1450,7 +1494,7 @@ function RSueldos(){
 function aPagoSueldo(sueldoId, periodo, editar){
   var s=ADB.sueldos.find(function(x){return x.id===sueldoId;}); if(!s) return;
   var pg=editar?ADB.pagosSueldos.find(function(p){return p.sueldoId===sueldoId&&p.periodo===periodo;}):null;
-  var h='<div class="g2"><div class="fld"><label class="lbl">Fecha de pago</label><input class="inp" type="date" id="ps-fecha" value="'+(pg?pg.fecha:hoy())+'"/></div>';
+  var h='<div class="g2"><div class="fld"><label class="lbl">Fecha de pago</label><input class="inp" type="date" id="ps-fecha" value="'+(pg?pg.fecha:fechaSugerida())+'"/></div>';
   h+='<div class="fld"><label class="lbl">Monto</label><input class="inp" type="number" id="ps-monto" value="'+(pg?pg.monto:s.monto)+'"/></div></div>';
   h+='<div class="fld"><label class="lbl">Bono (opcional)</label><input class="inp" type="number" id="ps-bono" value="'+(pg?(pg.bono||0):0)+'"/></div>';
   h+='<div class="fld"><label class="lbl">Método de pago</label><select class="inp" id="ps-metodo">'+opcionesMetodo(pg?pg.metodo:"")+'</select></div>';
@@ -1470,7 +1514,7 @@ function guardarPagoSueldo(sueldoId, periodo){
 }
 function aBonoUnico(sueldoId){
   var s=ADB.sueldos.find(function(x){return x.id===sueldoId;}); if(!s) return;
-  var h='<div class="g2"><div class="fld"><label class="lbl">Fecha</label><input class="inp" type="date" id="bu-fecha" value="'+hoy()+'"/></div>';
+  var h='<div class="g2"><div class="fld"><label class="lbl">Fecha</label><input class="inp" type="date" id="bu-fecha" value="'+fechaSugerida()+'"/></div>';
   h+='<div class="fld"><label class="lbl">Monto del bono</label><input class="inp" type="number" id="bu-monto"/></div></div>';
   h+='<div class="fld"><label class="lbl">Método de pago</label><select class="inp" id="bu-metodo">'+opcionesMetodo("")+'</select></div>';
   h+='<div class="sm mut" style="margin-bottom:8px">Este bono es único: no se repite mes con mes ni forma parte del pago periódico.</div>';
@@ -1572,7 +1616,7 @@ function ajustesPorCuenta(desde){
 
 function RCaja(){
   var cfg=ADB.config||{}, desde=cfg.fechaSaldoInicial||"";
-  var ym=mesActual();
+  var ym=mesT();
   var im=ingresosPorMetodo(ym);
   var totIngr=im.efectivo+im.tarjeta+im.transferencia;
 

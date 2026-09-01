@@ -20,6 +20,9 @@ input,select,textarea{font-family:inherit;outline:none;color:#f0ebe3}
 
 /* ── HEADER ── */
 #hdr{position:sticky;top:0;z-index:100;background:#0f0e0c;border-bottom:1px solid #2a2620;display:flex;align-items:center;gap:8px;padding:0 14px;height:46px;flex-wrap:nowrap}
+#mesrow{display:flex;align-items:center;gap:8px;padding:7px 14px;background:#141210;border-bottom:1px solid #2a2620;flex-wrap:wrap}
+#mesrow input[type=month]{background:#0f0e0c;border:1px solid #2a2620;border-radius:7px;color:#f0ebe3;font-size:13px;padding:5px 9px}
+#mes-banner{display:none;background:#2a2010;border-bottom:1px solid #4a3a1a;color:#c9a96e;font-size:12px;padding:8px 14px}
 #navrow{position:sticky;top:46px;z-index:99;background:#0f0e0c;border-bottom:1px solid #2a2620;overflow-x:auto;white-space:nowrap;padding:6px 14px}
 #navrow::-webkit-scrollbar{height:4px}
 #navrow::-webkit-scrollbar-thumb{background:#2a2620;border-radius:4px}
@@ -124,6 +127,12 @@ input,select,textarea{font-family:inherit;outline:none;color:#f0ebe3}
   <div id="sync-ind">Conectando...</div>
   <div id="hr"><button class="hb" onclick="aLogo()">Logotipo</button><button class="hb" onclick="cambiarPassApp()">Contraseña</button><button class="hb" onclick="cerrarSesion()">Salir</button></div>
 </div>
+<div id="mesrow">
+  <label class="lbl" style="margin:0">Mes de trabajo</label>
+  <input type="month" id="mes-sel" onchange="setMesTrabajo(this.value)"/>
+  <button class="hb" id="mes-sello" onclick="toggleCierreAdmin()">Marcar revisado</button>
+</div>
+<div id="mes-banner"></div>
 <div id="navrow">
   <div id="desknav">
     <button class="nb on" data-tab="dash" onclick="setTab('dash')">Resumen</button>
