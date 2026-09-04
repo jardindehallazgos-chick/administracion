@@ -369,7 +369,7 @@ function setTab(name){
   renderAll();
 }
 function renderAll(){
-  var selM=ge("mes-sel"); if(selM&&!selM.value) selM.value=mesTrabajo;
+  var lab=ge("mes-label"); if(lab) lab.textContent=nombreMes(mesTrabajo);
   var sello=ge("mes-sello");
   if(sello){
     var cerrado=esMesCerradoAdmin(mesTrabajo);
@@ -418,6 +418,7 @@ function esMesCerradoAdmin(ym){ return (ADB.mesesCerradosAdmin||[]).indexOf(ym)!
 function setMesTrabajo(v){
   if(!v) return;
   mesTrabajo=v;
+  var lab=ge("mes-label"); if(lab) lab.textContent=nombreMes(mesTrabajo);
   var b=ge("mes-banner");
   if(b){
     if(mesTrabajo!==mesActual()){
@@ -427,7 +428,12 @@ function setMesTrabajo(v){
   }
   renderAll();
 }
-function volverMesActual(){ var sel=ge("mes-sel"); if(sel) sel.value=mesActual(); setMesTrabajo(mesActual()); }
+function volverMesActual(){ setMesTrabajo(mesActual()); }
+function moverMes(delta){
+  var d=new Date(mesTrabajo+"-01T00:00:00");
+  d.setMonth(d.getMonth()+delta);
+  setMesTrabajo(d.toISOString().slice(0,7));
+}
 function toggleCierreAdmin(){
   var ym=mesT();
   ADB.mesesCerradosAdmin=ADB.mesesCerradosAdmin||[];
@@ -454,7 +460,9 @@ function ingresosMes(ym){
   for(var i=0;i<DATOS.ventas.length;i++){
     var v=DATOS.ventas[i];
     if((v.fecha||"").slice(0,7)!==ym) continue;
-    if(v.cancelacion) continue;
+    // Las cancelaciones se registran como ventas con total NEGATIVO: se suman (restan
+    // solas) para que el ingreso quede neto de devoluciones, igual que en Vintage.
+    if(v.cancelacion){ ingr+=v.total||0; continue; }
     if(v.esApartado) continue; // su ingreso viene de los abonos, no del total de la pieza
     ingr+=v.total||0;
   }
@@ -544,7 +552,7 @@ function impuestoTeoricoMes(ym){
   for(var i=0;i<DATOS.ventas.length;i++){
     var v=DATOS.ventas[i];
     if((v.fecha||"").slice(0,7)!==ym) continue;
-    if(v.cancelacion) continue;
+    if(v.cancelacion){ var fc=fiscalCalc(Math.abs(v.total||0), v.mpago||"efectivo"); iva-=fc.iva; isr-=fc.isr; continue; }
     if(v.esApartado) continue;
     var f=fiscalCalc(v.total||0, v.mpago||"efectivo");
     iva+=f.iva; isr+=f.isr;
@@ -868,29 +876,36 @@ function guardarPagoCredito(credId){
 
 // ── VARIABLES ────────────────────────────────────────────────────────────────
 var CATS_VAR=["Papelería","Compra de equipo","Otros"];
-function aVariable(){
-  var opts=""; for(var i=0;i<CATS_VAR.length;i++) opts+='<option value="'+CATS_VAR[i]+'">'+CATS_VAR[i]+'</option>';
+function aVariable(id){
+  var v=id?ADB.variables.find(function(x){return x.id===id;}):null;
+  var cats=CATS_VAR.slice();
+  if(v&&cats.indexOf(v.categoria)===-1) cats.push(v.categoria);
+  var opts=""; for(var i=0;i<cats.length;i++) opts+='<option value="'+esc(cats[i])+'" '+(v&&v.categoria===cats[i]?"selected":"")+'>'+esc(cats[i])+'</option>';
   opts+='<option value="__nueva__">+ Nueva categoría...</option>';
   var h='<div class="fld"><label class="lbl">Categoría</label><select class="inp" id="vr-cat" onchange="if(this.value===\'__nueva__\')ge(\'vr-cat-nueva\').style.display=\'block\';else ge(\'vr-cat-nueva\').style.display=\'none\'">'+opts+'</select></div>';
   h+='<div class="fld" id="vr-cat-nueva" style="display:none"><label class="lbl">Nombre de la nueva categoría</label><input class="inp" id="vr-cat-txt"/></div>';
-  h+='<div class="g2"><div class="fld"><label class="lbl">Monto</label><input class="inp" type="number" id="vr-monto"/></div>';
-  h+='<div class="fld"><label class="lbl">Fecha</label><input class="inp" type="date" id="vr-fecha" value="'+fechaSugerida()+'"/></div></div>';
-  h+='<div class="fld"><label class="lbl">Nota (opcional)</label><input class="inp" id="vr-nota"/></div>';
-  h+='<div class="fld"><label class="lbl">Método de pago</label><select class="inp" id="vr-metodo">'+opcionesMetodo("")+'</select></div>';
-  h+='<div class="fld"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px"><input type="checkbox" id="vr-externo" style="accent-color:#c9a96e;width:15px;height:15px"/> Pagado con fondos externos (no descontar de la utilidad de este mes)</label></div>';
-  h+='<div style="display:flex;justify-content:flex-end;padding-top:7px"><button class="btna" onclick="saveVariable()">Guardar</button></div>';
-  OM("Nuevo gasto variable", h);
+  h+='<div class="g2"><div class="fld"><label class="lbl">Monto</label><input class="inp" type="number" id="vr-monto" value="'+(v?v.monto:"")+'"/></div>';
+  h+='<div class="fld"><label class="lbl">Fecha</label><input class="inp" type="date" id="vr-fecha" value="'+(v?v.fecha:fechaSugerida())+'"/></div></div>';
+  h+='<div class="fld"><label class="lbl">Nota (opcional)</label><input class="inp" id="vr-nota" value="'+esc(v?v.nota:"")+'"/></div>';
+  h+='<div class="fld"><label class="lbl">Método de pago</label><select class="inp" id="vr-metodo">'+opcionesMetodo(v?v.metodo:"")+'</select></div>';
+  h+='<div class="fld"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px"><input type="checkbox" id="vr-externo" '+(v&&v.fondosExternos?"checked":"")+' style="accent-color:#c9a96e;width:15px;height:15px"/> Pagado con fondos externos (no descontar de la utilidad de este mes)</label></div>';
+  h+='<div style="display:flex;justify-content:space-between;padding-top:7px">';
+  h+=(v?'<button class="btnr" onclick="delVariable(\''+v.id+'\')">Eliminar</button>':'<span></span>');
+  h+='<button class="btna" onclick="saveVariable(\''+(id||"")+'\')">Guardar</button></div>';
+  OM(v?"Editar gasto variable":"Nuevo gasto variable", h);
 }
-function saveVariable(){
+function saveVariable(id){
   var cat=ge("vr-cat").value; if(cat==="__nueva__") cat=ge("vr-cat-txt").value.trim()||"Otros";
   if(CATS_VAR.indexOf(cat)===-1) CATS_VAR.push(cat);
-  ADB.variables.push({id:uid(), categoria:cat, monto:parseFloat(ge("vr-monto").value)||0, fecha:ge("vr-fecha").value||hoy(), nota:ge("vr-nota").value||"", metodo:ge("vr-metodo").value, fondosExternos:ge("vr-externo").checked});
+  var d={categoria:cat, monto:parseFloat(ge("vr-monto").value)||0, fecha:ge("vr-fecha").value||hoy(), nota:ge("vr-nota").value||"", metodo:ge("vr-metodo").value, fondosExternos:ge("vr-externo").checked};
+  if(id){ var i=ADB.variables.findIndex(function(x){return x.id===id;}); if(i>=0) ADB.variables[i]=Object.assign({},ADB.variables[i],d); }
+  else { d.id=uid(); ADB.variables.push(d); }
   saveAdmin(); CM(); RVariables(); RDash();
 }
 function delVariable(id){
   if(!confirm("Eliminar este gasto?")) return;
   ADB.variables=ADB.variables.filter(function(x){return x.id!==id;});
-  saveAdmin(); RVariables(); RDash();
+  saveAdmin(); CM(); RVariables(); RDash();
 }
 function RVariables(){
   var ym=mesT();
@@ -902,7 +917,7 @@ function RVariables(){
   if(!deEsteMes.length){ el.innerHTML='<div class="sm mut">Sin gastos variables registrados este mes.</div>'; return; }
   var h='<div class="tw"><table class="tbl"><thead><tr><th>Fecha</th><th>Categoría</th><th>Nota</th><th>Monto</th><th></th></tr></thead><tbody>';
   for(var i=0;i<deEsteMes.length;i++){ var v=deEsteMes[i];
-    h+='<tr><td class="mut">'+v.fecha+'</td><td>'+esc(v.categoria)+'</td><td class="mut sm">'+esc(v.nota||"")+'</td><td class="gold">'+fmt(v.monto)+'</td><td><button class="btn btns" style="color:#f87171" onclick="delVariable(\''+v.id+'\')">X</button></td></tr>';
+    h+='<tr><td class="mut">'+v.fecha+'</td><td>'+esc(v.categoria)+'</td><td class="mut sm">'+esc(v.nota||"")+'</td><td class="gold">'+fmt(v.monto)+'</td><td><button class="btn btns" onclick="aVariable(\''+v.id+'\')">Editar</button></td></tr>';
   }
   h+='</tbody></table></div>';
   el.innerHTML=h;
@@ -1551,9 +1566,9 @@ function ingresosPorMetodo(ym){
   if(arch){ r.efectivo=arch.efectivo||0; r.tarjeta=arch.tarjeta||0; r.transferencia=arch.transferencia||0; return r; }
   for(var i=0;i<DATOS.ventas.length;i++){
     var v=DATOS.ventas[i];
-    if((v.fecha||"").slice(0,7)!==ym||v.cancelacion||v.esApartado) continue;
+    if((v.fecha||"").slice(0,7)!==ym||v.esApartado) continue;
     var m=v.mpago||"efectivo"; if(r[m]===undefined) m="efectivo";
-    r[m]+=v.total||0;
+    r[m]+=v.total||0; // las cancelaciones vienen en negativo y restan solas
   }
   for(var i=0;i<DATOS.apartados.length;i++){
     var apa=DATOS.apartados[i];
